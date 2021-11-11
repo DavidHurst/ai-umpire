@@ -98,46 +98,46 @@ class MyReportContactCallback(chrono.ReportContactCallback):
 reporter = MyReportContactCallback()
 
 # Visualise system with Irrlicht app
-# vis_app = chronoirr.ChIrrApp(system, 'Ball Visualisation', chronoirr.dimension2du(800, 800))
-#
-# vis_app.AddTypicalCamera(chronoirr.vector3df(0, 25, -70))
-# vis_app.AddTypicalSky(chrono.GetChronoDataFile('\\skybox\\'))
-# # vis_app.AddTypicalLights()
-# vis_app.AddLight(chronoirr.vector3df(0, 30, 0), 200)
-# vis_app.AddShadowAll()
-# vis_app.AssetBindAll()
-# vis_app.AssetUpdateAll()
-#
-# # -- Run simulation -- #
-# vis_app.SetTimestep(0.01)
-# vis_app.SetTryRealtime(True)
-#
-# while vis_app.GetDevice().run():
-#     vis_app.BeginScene()
-#     vis_app.DrawAll()
-#     vis_app.DoStep()
-#     vis_app.EndScene()
-#
-#     system.GetContactContainer().ReportAllContacts(reporter)
+vis_app = chronoirr.ChIrrApp(system, 'Ball Visualisation', chronoirr.dimension2du(800, 800))
+
+vis_app.AddTypicalCamera(chronoirr.vector3df(0, 25, -70))
+vis_app.AddTypicalSky(chrono.GetChronoDataFile('\\skybox\\'))
+# vis_app.AddTypicalLights()
+vis_app.AddLight(chronoirr.vector3df(0, 30, 0), 200)
+vis_app.AddShadowAll()
+vis_app.AssetBindAll()
+vis_app.AssetUpdateAll()
+
+# -- Run simulation -- #
+vis_app.SetTimestep(0.01)
+vis_app.SetTryRealtime(True)
+
+while vis_app.GetDevice().run():
+    vis_app.BeginScene()
+    vis_app.DrawAll()
+    vis_app.DoStep()
+    vis_app.EndScene()
+
+    system.GetContactContainer().ReportAllContacts(reporter)
 
 # Export simulation data so that it can be visualised in POV-Ray
-pov_exporter = postprocess.ChPovRay(system)
-pov_exporter.SetTemplateFile(f'{data_path}\\_template_POV.pov')
-pov_exporter.SetBasePath(str(Path('C:\\Users\\david\\Downloads\\generated_povray').resolve()))
-pov_exporter.SetCamera(chrono.ChVectorD(0, 40, -75), chrono.ChVectorD(0, 15, 25), 0)
-pov_exporter.SetLight(chrono.ChVectorD(0, 30, 0), chrono.ChColor(1, 1, 1, 1), True)
-pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
-pov_exporter.SetPictureSize(1280, 720)
-pov_exporter.SetAntialiasing(True, 6, 0.3)
-
-# Add bodies to export
-pov_exporter.AddAll()
-
-pov_exporter.ExportScript()
-
-# Perform a short simulation
-while system.GetChTime() <= 1:
-    system.DoStepDynamics(0.01)
-    system.GetContactContainer().ReportAllContacts(reporter)
-    print(f'Time Step = {system.GetChTime():.2f}')
-    pov_exporter.ExportData()
+# pov_exporter = postprocess.ChPovRay(system)
+# pov_exporter.SetTemplateFile(f'{data_path}\\_template_POV.pov')
+# pov_exporter.SetBasePath(str(Path('C:\\Users\\david\\Downloads\\generated_povray').resolve()))
+# pov_exporter.SetCamera(chrono.ChVectorD(0, 40, -75), chrono.ChVectorD(0, 15, 25), 0)
+# pov_exporter.SetLight(chrono.ChVectorD(0, 30, 0), chrono.ChColor(1, 1, 1, 1), True)
+# pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
+# pov_exporter.SetPictureSize(1280, 720)
+# pov_exporter.SetAntialiasing(True, 6, 0.3)
+#
+# # Add bodies to export
+# pov_exporter.AddAll()
+#
+# pov_exporter.ExportScript()
+#
+# # Perform a short simulation
+# while system.GetChTime() <= 1:
+#     system.DoStepDynamics(0.01)
+#     system.GetContactContainer().ReportAllContacts(reporter)
+#     print(f'Time Step = {system.GetChTime():.2f}')
+#     pov_exporter.ExportData()
