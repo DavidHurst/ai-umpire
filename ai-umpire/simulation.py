@@ -30,9 +30,9 @@ sph_mat.SetFriction(0.25)
 
 # Ball
 ball = chrono.ChBodyEasySphere(20 * mm, 0.0001, True, True, sph_mat)
-ball.SetPos(chrono.ChVectorD(0, 1000 * mm, 3000 * mm))
+ball.SetPos(chrono.ChVectorD(0, 100 * mm, COURT_LENGTH * 0.6))
 ball.SetName('Ball')
-ball.SetPos_dt(chrono.ChVectorD(8, 10, 20))  # Speed
+ball.SetPos_dt(chrono.ChVectorD(8, 20, 55))  # Speed
 ball.SetPos_dtdt(chrono.ChVectorD(5, 5, 5))  # Acceleration
 ball.SetRot_dt(chrono.ChQuaternionD(0, 0, 0.5, 0))  # Rotation
 ball.SetRot_dtdt(chrono.ChQuaternionD(0, 0, 0.5, 0))  # Rotation acceleration
