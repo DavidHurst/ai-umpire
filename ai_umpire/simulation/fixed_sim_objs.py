@@ -109,7 +109,7 @@ RIGHT_WALL_OUT_LINE = chrono.ChBodyEasyBox(
 RIGHT_WALL_OUT_LINE.SetName("Left Wall Out Line")
 RIGHT_WALL_OUT_LINE.SetPos(
     chrono.ChVectorD(
-        COURT_WIDTH / 2 + (WALL_THICKNESS / 2) - PAINT_THICKNESS,
+        COURT_WIDTH / 2 - (WALL_THICKNESS / 2) - PAINT_THICKNESS,
         BACK_WALL_OUT_LINE_HEIGHT + 1.22 + (LINE_MARKING_WIDTH / 2),
         0,
     )
