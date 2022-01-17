@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-addopts = "-rA -q -v"# --cov="
+addopts = "-rA -q -v --cov=ai_umpire"
 testpaths = [
     "tests"
 ]

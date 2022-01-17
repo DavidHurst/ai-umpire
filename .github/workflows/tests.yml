@@ -1,0 +1,7 @@
+name: Tests
+on: [push]
+jobs:
+  Run-all-tests:
+    runs-on: windows-latest
+    steps:
+      - run: pytest
