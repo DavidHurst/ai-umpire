@@ -36,8 +36,8 @@ sph_mat.SetFriction(0.25)
 ball = chrono.ChBodyEasySphere(0.04, 1, True, True, sph_mat)
 ball.SetPos(chrono.ChVectorD(-2, 1, -2))
 ball.SetName('Ball')
-ball.SetPos_dt(chrono.ChVectorD(5.5, 6, 40))  # Speed
-ball.SetPos_dtdt(chrono.ChVectorD(0, 2, 3))  # Acceleration
+ball.SetPos_dt(chrono.ChVectorD(5.5, 6, 40))
+ball.SetPos_dtdt(chrono.ChVectorD(0, 2, 3))
 # ball.SetRot_dt(chrono.ChQuaternionD(0, 0, 0.5, 0))        # Rotation
 # ball.SetRot_dtdt(chrono.ChQuaternionD(0, 0, 0.5, 0))      # Rotation acceleration
 
@@ -105,12 +105,12 @@ service_line.SetPos(chrono.ChVectorD(0, 1.7 + (LINE_MARKING_WIDTH / 2),
 service_line.SetBodyFixed(True)
 
 # Left-wall out-line line
-# left_wall_out_line = chrono.ChBodyEasyBox(2, 2, 4, 1000, True, True,
-#                                           surface_mat)
-# left_wall_out_line.SetName('Left Wall Out Line')
-# left_wall_out_line.SetPos(chrono.ChVectorD(0, 3, 0))
+left_wall_out_line = chrono.ChBodyEasyBox(2, 2, 4, 1000, True, True,
+                                          surface_mat)
+left_wall_out_line.SetName('Left Wall Out Line')
+left_wall_out_line.SetPos(chrono.ChVectorD(0, 3, 0))
 # left_wall_out_line >> chrono.ChQuaternionD(3, 3, 4, 1)
-# left_wall_out_line.SetBodyFixed(True)
+left_wall_out_line.SetBodyFixed(True)
 #
 # # Right-wall out-line line
 # right_wall_out_line = chrono.ChBodyEasyBox(2, 2, 4, 1000, True, True,
@@ -171,25 +171,10 @@ ball.AddAsset(default_box_texture)
 tin.AddAsset(red_texture)
 player1.AddAsset(default_box_texture)
 player2.AddAsset(default_box_texture)
-
 front_wall_out_line.AddAsset(red_texture)
 service_line.AddAsset(red_texture)
-# left_wall_out_line.AddAsset(red_texture)
+left_wall_out_line.AddAsset(red_texture)
 # right_wall_out_line.AddAsset(red_texture)
-
-# POV-Ray textures
-# left_wall.AddAsset(wall_texture_povray)
-# right_wall.AddAsset(wall_texture_povray)
-# front_wall.AddAsset(wall_texture_povray)
-# back_wall.AddAsset(wall_texture_povray)
-# floor.AddAsset(floor_texture_povray)
-# ball.AddAsset(ball_texture_povray)
-# tin.AddAsset(red_texture_povray)
-# player1.AddAsset(red_texture_povray)
-# player2.AddAsset(blue_texture_povray)
-#
-# front_wall_out_line.AddAsset(red_texture_povray)
-# service_line.AddAsset(red_texture_povray)
 
 
 # Class that reports contact and allows user defined actions upon contact.
@@ -211,7 +196,7 @@ class MyReportContactCallback(chrono.ReportContactCallback):
 reporter = MyReportContactCallback()
 
 # Visualise system with Irrlicht app
-vis_app = chronoirr.ChIrrApp(system, 'Ball Visualisation', chronoirr.dimension2du(800, 800))
+vis_app = chronoirr.ChIrrApp(system, 'Ball Visualisation', chronoirr.dimension2du(1200, 800))
 
 vis_app.AddTypicalCamera(chronoirr.vector3df(0, BACK_WALL_OUT_LINE_HEIGHT + 1.5, -COURT_LENGTH))
 vis_app.AddTypicalSky(chrono.GetChronoDataFile('\\skybox\\'))
@@ -226,13 +211,24 @@ time_step = 0.001  # 1000th of a second i.e. 1000fps so can average 20 frames to
 # -- Run simulation -- #
 vis_app.SetTimestep(time_step)
 vis_app.SetTryRealtime(True)
+vis_app.SetShowInfos(True)
+# vis_app.SetShowProfiler(True)
 system.SetStep(time_step)
 
+# for i in range(1000):
 while vis_app.GetDevice().run():
+    # print(f'Step: {i}')
+    vis_app.DoStep()
     vis_app.BeginScene()
     vis_app.DrawAll()
     vis_app.DoStep()
     vis_app.EndScene()
+
+# while vis_app.GetDevice().run():
+#     vis_app.BeginScene()
+#     vis_app.DrawAll()
+#     vis_app.DoStep()
+#     vis_app.EndScene()
 
     # print(f'Current time step = {system.GetChTime()} seconds.')
     # print(f'Step size = {system.GetStep()} seconds.')
@@ -267,15 +263,15 @@ while vis_app.GetDevice().run():
 # pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
 # pov_exporter.SetPictureSize(852, 480)  # 1280, 720
 # pov_exporter.SetAntialiasing(True, 6, 0.3)
-'''
-    Commands to append to .ini file:
-        Output_File_Type=J
-        Quality=8
-        Continue_Trace=on       # Continue rendering from last frame rendered if render was stopped.
-        Work_Threads=2048
-'''
-
-# # Add bodies to export
+# '''
+#     Commands to append to .ini file:
+#         Output_File_Type=J
+#         Quality=8
+#         Continue_Trace=on       # Continue rendering from last frame rendered if render was stopped.
+#         Work_Threads=2048
+# '''
+#
+# # # Add bodies to export
 # pov_exporter.AddAll()
 # pov_exporter.ExportScript()
 #
@@ -319,7 +315,7 @@ while vis_app.GetDevice().run():
 #     if player2.GetPos().z <= -2:
 #         player2.SetPos_dt(chrono.ChVectorD(1.5, 0, 4))  # Speed
 #
-#     pov_exporter.ExportData()
+    # pov_exporter.ExportData()
 #
 # for i in range(3):
 #     axis = plt.gcf().get_axes()[i]
