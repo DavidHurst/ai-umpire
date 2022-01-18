@@ -3,12 +3,12 @@ from pathlib import Path
 import pytest
 import pychrono as chrono
 
-from ai_umpire.simulation import Simulation
+from ai_umpire.simulation.sim import Simulation
 
 
 @pytest.fixture
 def sim_instance():
-    sim_gen = Simulation(
+    sim = Simulation(
         sim_id=0,
         root=Path("C:\\Users\\david\\Downloads").resolve(),
         out_file=Path("C:\\Users\\david\\Data").resolve(),
@@ -23,7 +23,7 @@ def sim_instance():
         p2_pos_z=-1.0,
         p2_speed=chrono.ChVectorD(1.5, 0, 4),
     )
-    return sim_gen
+    return sim
 
 
 def test_init(sim_instance):

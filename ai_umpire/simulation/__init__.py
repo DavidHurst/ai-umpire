@@ -1,3 +1,3 @@
-from .sim import Simulation
+from . import sim, sim_gen
 
-__all__ = ["Simulation"]
+__all__ = ["sim", "sim_gen"]
