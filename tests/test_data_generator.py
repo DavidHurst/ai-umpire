@@ -7,9 +7,9 @@ import pytest
 
 from ai_umpire.dataset.data_gen import DataGenerator
 
+SIM_ID = 0
 ROOT_DIR = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 VID_DIR = ROOT_DIR / "videos"
-SIM_ID = 0
 SIM_FRAMES_PATH = ROOT_DIR / "sim_frames" / f"sim_{SIM_ID}_frames"
 SIM_BLURRED_FRAMES_PATH = ROOT_DIR / "blurred_frames" / f"sim_{SIM_ID}_blurred"
 
@@ -22,7 +22,7 @@ def data_gen_instance() -> DataGenerator:
     # Teardown
     if SIM_BLURRED_FRAMES_PATH.exists():
         shutil.rmtree(SIM_BLURRED_FRAMES_PATH)
-    vid_path: Path = VID_DIR / f'sim{SIM_ID}.mp4'
+    vid_path: Path = VID_DIR / f"sim{SIM_ID}.mp4"
     if vid_path.exists():
         vid_path.unlink()
 
@@ -41,7 +41,10 @@ def test_blurring(data_gen_instance) -> None:
 
     n_frames: int = len(glob.glob(f"{SIM_FRAMES_PATH}{os.path.sep}*.png"))
     expected_n_blurred_frames: int = int(n_frames / n_frames_to_avg)
-    assert len(glob.glob(f"{SIM_BLURRED_FRAMES_PATH}{os.path.sep}*.jpg")) == expected_n_blurred_frames
+    assert (
+        len(glob.glob(f"{SIM_BLURRED_FRAMES_PATH}{os.path.sep}*.jpg"))
+        == expected_n_blurred_frames
+    )
 
 
 def test_vid_conversion(data_gen_instance) -> None:
@@ -55,7 +58,7 @@ def test_vid_conversion(data_gen_instance) -> None:
     data_gen_instance.convert_frames_to_vid(
         vid_out_dir_path=VID_DIR,
         blurred_frames_dir_path=SIM_BLURRED_FRAMES_PATH,
-        sim_id=0
+        sim_id=0,
     )
     vid_count_post: int = len(glob.glob(f"{VID_DIR}{os.path.sep}*.mp4"))
 

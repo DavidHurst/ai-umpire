@@ -144,14 +144,16 @@ class Simulation:
         self, duration: float, export: bool = True, visualise: bool = False
     ) -> None:
         if not export and not visualise:
-            e: ValueError = ValueError("Simulation did not run, visualise and export disabled.")
+            e: ValueError = ValueError(
+                "Simulation did not run, visualise and export disabled."
+            )
             logging.exception(e)
             raise e
-        logging.info(f'Export enabled: {export}.')
-        logging.info(f'Visualise enabled: {visualise}.')
+        logging.info(f"Export enabled: {export}.")
+        logging.info(f"Visualise enabled: {visualise}.")
 
         if export:
-            logging.info('Simulating, rendering and exporting.')
+            logging.info("Simulating, rendering and exporting.")
             # Set up object that exports the simulation data to a format that POV-Ray can render
             pov_exporter: postprocess.ChPovRay = postprocess.ChPovRay(self._sys)
             pov_exporter.SetTemplateFile(".\\assets\\_template_POV.pov")
@@ -180,14 +182,16 @@ class Simulation:
             """
 
             # Run simulation one time step at a time exporting data for rendering at each time step
-            pbar: tqdm = tqdm(total=duration, desc='Running simulation (showing time step)')
+            pbar: tqdm = tqdm(
+                total=duration, desc="Running simulation (showing time step)"
+            )
             while self._sys.GetChTime() < duration:
                 pov_exporter.ExportData()
                 self._sys.DoStepDynamics(self._time_step)
                 pbar.update(self._time_step)
 
         if visualise:
-            logging.info('Visualising simulation.')
+            logging.info("Visualising simulation.")
             # Visualise system with Irrlicht app
             vis_app = chronoirr.ChIrrApp(
                 self._sys, "Ball Visualisation", chronoirr.dimension2du(1200, 800)
