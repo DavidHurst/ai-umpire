@@ -60,7 +60,11 @@ class DataGenerator:
         )
 
     def convert_frames_to_vid(
-        self, vid_out_dir_path: Path, blurred_frames_dir_path: Path, sim_id: int
+        self,
+        vid_out_dir_path: Path,
+        blurred_frames_dir_path: Path,
+        sim_id: int,
+        fps: int = 50,
     ) -> None:
         logging.info("Converting blurred frames to video...")
         if not blurred_frames_dir_path.exists():
@@ -73,12 +77,12 @@ class DataGenerator:
         f_width: int
         f_height, f_width, _ = cv2.imread(frame_paths[0]).shape
         f_size: tuple = (f_width, f_height)
-        vid_fname: str = f"sim{sim_id}.mp4"
+        vid_fname: str = f"sim_{sim_id}.mp4"
 
         writer = cv2.VideoWriter(
             filename=vid_fname,
             fourcc=cv2.VideoWriter_fourcc(*"mp4v"),
-            fps=50,
+            fps=fps,
             frameSize=f_size,
         )
 

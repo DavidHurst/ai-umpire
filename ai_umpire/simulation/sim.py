@@ -33,7 +33,6 @@ class Simulation:
         self,
         sim_id: int,
         root: Path,
-        out_file: Path,
         step_sz: float,
         ball_origin: chrono.ChVectorD,
         ball_speed: chrono.ChVectorD,
@@ -46,9 +45,11 @@ class Simulation:
         p2_speed: chrono.ChVectorD,
     ) -> None:
         self._id: int = sim_id
-        self._povray_out_file: str = f"sim_{sim_id}_povray"
         self._root: Path = root
-        self.out_file: Path = out_file
+        self._povray_out_file: str = f"sim_{sim_id}_povray"
+        self._povray_out_dir_path: Path = (
+            self._root / "generated_povray" / self._povray_out_file
+        )
         self._sys: chrono.ChSystemNSC = chrono.ChSystemNSC()
         self._time_step: float = step_sz
 
@@ -156,10 +157,9 @@ class Simulation:
             logging.info("Simulating, rendering and exporting.")
             # Set up object that exports the simulation data to a format that POV-Ray can render
             pov_exporter: postprocess.ChPovRay = postprocess.ChPovRay(self._sys)
-            pov_exporter.SetTemplateFile(".\\assets\\_template_POV.pov")
-            pov_exporter.SetBasePath(
-                str((self._root / self._povray_out_file).resolve())
-            )
+            pov_exporter.SetTemplateFile(str(Path(".\\assets\\_template_POV.pov").resolve()))
+            pov_exporter.SetBasePath(str(self._povray_out_dir_path))
+            pov_exporter.SetOutputScriptFile(f"render_sim_{self._id}")
             pov_exporter.SetCamera(
                 chrono.ChVectorD(0, 3, -11),
                 chrono.ChVectorD(0, 3, 11),
@@ -183,12 +183,12 @@ class Simulation:
 
             # Run simulation one time step at a time exporting data for rendering at each time step
             pbar: tqdm = tqdm(
-                total=duration, desc="Running simulation (showing time step)"
+                total=int(duration / self._time_step), desc="Running simulation"
             )
             while self._sys.GetChTime() < duration:
                 pov_exporter.ExportData()
                 self._sys.DoStepDynamics(self._time_step)
-                pbar.update(self._time_step)
+                pbar.update(1)
 
         if visualise:
             logging.info("Visualising simulation.")

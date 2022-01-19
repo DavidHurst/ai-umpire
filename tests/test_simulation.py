@@ -5,13 +5,15 @@ import pychrono as chrono
 
 from ai_umpire.simulation.sim import Simulation
 
+ROOT = Path("C:\\Users\\david\\Data\\AI Umpire DS")
+SIM_ID = 0
+
 
 @pytest.fixture
 def sim_instance():
     sim = Simulation(
-        sim_id=0,
-        root=Path("C:\\Users\\david\\Downloads").resolve(),
-        out_file=Path("C:\\Users\\david\\Data").resolve(),
+        sim_id=SIM_ID,
+        root=ROOT,
         step_sz=0.001,
         ball_origin=chrono.ChVectorD(-2, 1, -2),
         ball_speed=chrono.ChVectorD(5.5, 6, 70),
@@ -33,6 +35,6 @@ def test_init(sim_instance):
 
 
 def test_run_sim(sim_instance):
-    sim_duration = 1.0
+    sim_duration = 5.0
     sim_instance.run_sim(sim_duration, export=True, visualise=False)
-    assert sim_duration / sim_instance.get_step_sz() == 1000
+    assert sim_duration / sim_instance.get_step_sz() == 5000
