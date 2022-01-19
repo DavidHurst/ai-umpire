@@ -36,4 +36,3 @@ def test_run_sim(sim_instance):
     sim_duration = 1.0
     sim_instance.run_sim(sim_duration, export=True, visualise=False)
     assert sim_duration / sim_instance.get_step_sz() == 1000
-
