@@ -1,12 +1,12 @@
 __all__ = ["DataGenerator"]
 
 import glob
-import os
-import numpy as np
 import logging
+import os
 from pathlib import Path
 
 import cv2
+import numpy as np
 from tqdm import tqdm
 
 
@@ -73,7 +73,7 @@ class DataGenerator:
         f_width: int
         f_height, f_width, _ = cv2.imread(frame_paths[0]).shape
         f_size: tuple = (f_width, f_height)
-        vid_fname:str = f"sim{sim_id}.mp4"
+        vid_fname: str = f"sim{sim_id}.mp4"
 
         writer = cv2.VideoWriter(
             filename=vid_fname,
@@ -88,7 +88,7 @@ class DataGenerator:
         writer.release()
 
         # Move video to data directory
-        vid_path: Path = Path('.') / vid_fname
+        vid_path: Path = Path(".") / vid_fname
         vid_path.rename(vid_out_dir_path / vid_fname)
 
         logging.info("Converted blurred frames to video.")

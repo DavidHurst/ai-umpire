@@ -1,21 +1,22 @@
-import pychrono as chrono
-import pychrono.irrlicht as chronoirr
+import logging
 from pathlib import Path
 
+import pychrono as chrono
+import pychrono.irrlicht as chronoirr
+import pychrono.postprocess as postprocess
+from tqdm import tqdm
+
+from ai_umpire.simulation.fixed_sim_objs import *
 from ai_umpire.simulation.sim_consts import (
     BACK_WALL_OUT_LINE_HEIGHT,
     COURT_LENGTH,
-    WALL_HEIGHT,
     PLAYER_HEIGHT,
 )
-from ai_umpire.simulation.fixed_sim_objs import *
 from ai_umpire.simulation.textures import (
     BALL_TEXTURE_POVRAY,
-    RED_TEXTURE_POVRAY,
     PURPLE_TEXTURE_POVRAY,
     ORANGE_TEXTURE_POVRAY,
 )
-import pychrono.postprocess as postprocess
 
 __all__ = ["Simulation"]
 
@@ -76,27 +77,27 @@ class Simulation:
         self._player1.AddAsset(ORANGE_TEXTURE_POVRAY)
 
         # Initialise player 1's racket
-        self._p1_racket: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-            0.5, 0.15, 0.15, 50, True, True, PLAYER_MAT
-        )
-        p1_racket_pos: chrono.ChVectorD = chrono.ChVectorD(
-            p1_pos_x + 0.5, 1.2, p1_pos_z
-        )
-        self._p1_racket.SetPos(p1_racket_pos)
-        self._p1_racket.SetRot(chrono.ChQuaternionD(-0.3801884, 0, 0, 0.9249091))
+        # self._p1_racket: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
+        #     0.5, 0.15, 0.15, 50, True, True, PLAYER_MAT
+        # )
+        # p1_racket_pos: chrono.ChVectorD = chrono.ChVectorD(
+        #     p1_pos_x + 0.5, 1.2, p1_pos_z
+        # )
+        # self._p1_racket.SetPos(p1_racket_pos)
+        # self._p1_racket.SetRot(chrono.ChQuaternionD(-0.3801884, 0, 0, 0.9249091))
         # self._p1_racket.SetRot_dt(chrono.ChQuaternionD(0, 0, 0, -1))
         # self._p1_racket.SetRot_dtdt(chrono.ChQuaternionD(0, 0, 0, -1))
-        self._p1_racket.AddAsset(ORANGE_TEXTURE_POVRAY)
+        # self._p1_racket.AddAsset(ORANGE_TEXTURE_POVRAY)
 
         # Link player 1 and player 1's racket
-        self._p1_link: chrono.ChLinkRevolute = chrono.ChLinkRevolute()
-        self._p1_link.Initialize(
-            self._player1,
-            self._p1_racket,
-            True,
-            chrono.ChFrameD(),
-            chrono.ChFrameD(),
-        )
+        # self._p1_link: chrono.ChLinkRevolute = chrono.ChLinkRevolute()
+        # self._p1_link.Initialize(
+        #     self._player1,
+        #     self._p1_racket,
+        #     True,
+        #     chrono.ChFrameD(),
+        #     chrono.ChFrameD(),
+        # )
 
         # Initialise player 2 body
         self._player2: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
@@ -143,8 +144,14 @@ class Simulation:
         self, duration: float, export: bool = True, visualise: bool = False
     ) -> None:
         if not export and not visualise:
-            raise ValueError("Simulation did not run, visualise and export disabled.")
+            e: ValueError = ValueError("Simulation did not run, visualise and export disabled.")
+            logging.exception(e)
+            raise e
+        logging.info(f'Export enabled: {export}.')
+        logging.info(f'Visualise enabled: {visualise}.')
+
         if export:
+            logging.info('Simulating, rendering and exporting.')
             # Set up object that exports the simulation data to a format that POV-Ray can render
             pov_exporter: postprocess.ChPovRay = postprocess.ChPovRay(self._sys)
             pov_exporter.SetTemplateFile(".\\assets\\_template_POV.pov")
@@ -173,11 +180,14 @@ class Simulation:
             """
 
             # Run simulation one time step at a time exporting data for rendering at each time step
+            pbar: tqdm = tqdm(total=duration, desc='Running simulation (showing time step)')
             while self._sys.GetChTime() < duration:
                 pov_exporter.ExportData()
                 self._sys.DoStepDynamics(self._time_step)
+                pbar.update(self._time_step)
 
         if visualise:
+            logging.info('Visualising simulation.')
             # Visualise system with Irrlicht app
             vis_app = chronoirr.ChIrrApp(
                 self._sys, "Ball Visualisation", chronoirr.dimension2du(1200, 800)
