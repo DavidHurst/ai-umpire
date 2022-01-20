@@ -157,7 +157,9 @@ class Simulation:
             logging.info("Simulating, rendering and exporting.")
             # Set up object that exports the simulation data to a format that POV-Ray can render
             pov_exporter: postprocess.ChPovRay = postprocess.ChPovRay(self._sys)
-            pov_exporter.SetTemplateFile(str(Path(".\\assets\\_template_POV.pov").resolve()))
+            pov_exporter.SetTemplateFile(
+                str(Path(".\\assets\\_template_POV.pov").resolve())
+            )
             pov_exporter.SetBasePath(str(self._povray_out_dir_path))
             pov_exporter.SetOutputScriptFile(f"render_sim_{self._id}")
             pov_exporter.SetCamera(
