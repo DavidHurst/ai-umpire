@@ -121,6 +121,9 @@ class Localiser:
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_simple_blob_filter.jpg", im_with_keypoints)
 
+    def localise_ball_hough(self, foreground_segmented_frames: np.ndarray):
+        pass
+
     def localise_ball_hough_circle(
             self, foreground_segmented_frames: np.ndarray
     ) -> None:
@@ -231,5 +234,5 @@ class Localiser:
 
                 # cv2.imshow(f"Frame #{i} with Blobs Drawn, Method={method}", display_img)
                 # cv2.waitKey(0)
-            plt.tight_layout()
-            plt.imsave(f"frame_{str(i).zfill(5)}_{method}.jpg", display_img)
+            # plt.tight_layout()
+            # plt.imsave(f"frame_{str(i).zfill(5)}_{method}.jpg", display_img)
