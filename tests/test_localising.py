@@ -63,9 +63,10 @@ def test_detection_hough_circle(localiser_instance) -> None:
     localiser_instance.localise_ball_hough_circle(foreground_segmented_frames)
 
 
-def test_detection_blob_log(localiser_instance) -> None:
+def test_detection_blob(localiser_instance) -> None:
     foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
         localiser_instance.extract_frames(VID_PATH)
     )
 
-    localiser_instance.localise_ball_blob_log(foreground_segmented_frames)
+    localiser_instance.localise_ball_blob(foreground_segmented_frames, 'doh')
+

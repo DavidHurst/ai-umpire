@@ -1,6 +1,7 @@
 __all__ = ["Localiser"]
 
 import logging
+from math import sqrt
 from pathlib import Path
 
 import cv2
@@ -9,7 +10,7 @@ from typing import List
 
 from matplotlib import pyplot as plt
 from skimage import img_as_ubyte
-from skimage.feature import blob_log
+from skimage.feature import blob_log, blob_dog, blob_doh
 from skimage.io import imshow
 
 from tqdm import tqdm
@@ -51,7 +52,7 @@ class Localiser:
         return np.array(foreground_segmented_frames)
 
     def localise_ball_blob_filter(
-        self, foreground_segmented_frames: np.ndarray
+            self, foreground_segmented_frames: np.ndarray
     ) -> None:
         # Setup SimpleBlobDetector parameters.
         params = cv2.SimpleBlobDetector_Params()
@@ -84,8 +85,8 @@ class Localiser:
         detector = cv2.SimpleBlobDetector_create(params)
 
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc="Detecting blobs in frames",
+                range(foreground_segmented_frames.shape[0]),
+                desc="Detecting blobs in frames",
         ):
             frame: np.ndarray = foreground_segmented_frames[i]
 
@@ -121,11 +122,11 @@ class Localiser:
             # plt.imsave(f"frame_{str(i).zfill(5)}_simple_blob_filter.jpg", im_with_keypoints)
 
     def localise_ball_hough_circle(
-        self, foreground_segmented_frames: np.ndarray
+            self, foreground_segmented_frames: np.ndarray
     ) -> None:
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc="Detecting circles in frames",
+                range(foreground_segmented_frames.shape[0]),
+                desc="Detecting circles in frames",
         ):
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
@@ -150,10 +151,10 @@ class Localiser:
 
             # Draw circles
             colour_im_path = (
-                Path(
-                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                )
-                / f"frame{str(i).zfill(5)}.jpg"
+                    Path(
+                        "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
+                    )
+                    / f"frame{str(i).zfill(5)}.jpg"
             )
             colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
             display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
@@ -166,11 +167,18 @@ class Localiser:
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_hough_circle.jpg", display_img)
 
-    def localise_ball_blob_log(self, foreground_segmented_frames: np.ndarray) -> None:
+    def localise_ball_blob(self, foreground_segmented_frames: np.ndarray, method: str) -> None:
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc="Detecting blobs in frames (LoG)",
+                range(foreground_segmented_frames.shape[0]),
+                desc="Detecting blobs in frames (LoG)",
         ):
+            method_types: List[str] = ['log', 'dog', 'doh']
+            if method not in method_types:
+                e: ValueError = ValueError(f'Invalid method/method not supported, available options: {method_types}')
+                logging.exception(e)
+                raise e
+            logging.info(f'Detecting blobs using {method}.')
+
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
             frame_normed_uint8 = cv2.normalize(
@@ -178,28 +186,50 @@ class Localiser:
             ).astype(np.uint8)
 
             # Detect blobs- can give kernel std devs as sequence per axis maybe to elongate blobs?
-            blobs_log = blob_log(
-                frame_normed_uint8,
-                min_sigma=1,
-                max_sigma=30,
-                num_sigma=10,
-                threshold=0.05,
-            )
+            blobs: np.ndarray = None
+            if method == 'log':
+                blobs: np.ndarray = blob_log(
+                    frame_normed_uint8,
+                    min_sigma=1,
+                    max_sigma=20,
+                    num_sigma=4,
+                    threshold=0.1,
+                )
+            if method == 'dog':
+                blobs = blob_dog(
+                    frame_normed_uint8,
+                    min_sigma=1,
+                    max_sigma=20,
+                    sigma_ratio=1.6,
+                    threshold=0.1,
+                )
+            if method == 'doh':
+                blobs: np.ndarray = blob_doh(
+                    frame_normed_uint8,
+                    min_sigma=1,
+                    max_sigma=20,
+                    num_sigma=1,
+                    threshold=0.005,
+                )
+
+            # Compute radii in the third column
+            if method == 'log' or 'dog':
+                blobs[:, 2] = blobs[:, 2] * sqrt(2)
 
             # Draw detected blobs
             colour_im_path = (
-                Path(
-                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                )
-                / f"frame{str(i).zfill(5)}.jpg"
+                    Path(
+                        "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
+                    )
+                    / f"frame{str(i).zfill(5)}.jpg"
             )
             colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
             display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
-            for blob in blobs_log:
+            for blob in blobs:
                 y, x, r = blob
                 cv2.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
 
-            # cv2.imshow(f"Frame {i} with Circles Drawn", display_img)
-            # cv2.waitKey(0)
-            # plt.tight_layout()
-            # plt.imsave(f"frame_{str(i).zfill(5)}_log.jpg", display_img)
+                # cv2.imshow(f"Frame #{i} with Blobs Drawn, Method={method}", display_img)
+                # cv2.waitKey(0)
+            plt.tight_layout()
+            plt.imsave(f"frame_{str(i).zfill(5)}_{method}.jpg", display_img)
