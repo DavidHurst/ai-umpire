@@ -20,12 +20,16 @@ from ai_umpire.simulation.textures import (
 
 __all__ = ["Simulation"]
 
-# Ball material
+# Ball material, parameters define collision properties
 BALL_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
+BALL_MAT.SetRestitution(1)
+BALL_MAT.SetDampingF(1)
+BALL_MAT.SetCompliance(0.001)
+
 
 # Player material
 PLAYER_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
-PLAYER_MAT.SetSfriction(0.1)
+PLAYER_MAT.SetSfriction(0.2)
 
 
 class Simulation:
@@ -37,6 +41,7 @@ class Simulation:
         ball_origin: chrono.ChVectorD,
         ball_speed: chrono.ChVectorD,
         ball_acc: chrono.ChVectorD,
+        ball_rot_dt: chrono.ChQuaternionD,
         p1_pos_x: float,
         p1_pos_z: float,
         p1_speed: chrono.ChVectorD,
@@ -63,6 +68,7 @@ class Simulation:
         self._ball.SetName("Ball")
         self._ball.SetPos_dt(ball_speed)
         self._ball.SetPos_dtdt(ball_acc)
+        self._ball.SetRot_dt(ball_rot_dt)
         self._ball.AddAsset(BALL_TEXTURE_POVRAY)
 
         # Initialise player 1 body
@@ -76,29 +82,6 @@ class Simulation:
         self._player1.SetPos(p1_pos)
         self._player1.SetPos_dt(p1_speed)
         self._player1.AddAsset(ORANGE_TEXTURE_POVRAY)
-
-        # Initialise player 1's racket
-        # self._p1_racket: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-        #     0.5, 0.15, 0.15, 50, True, True, PLAYER_MAT
-        # )
-        # p1_racket_pos: chrono.ChVectorD = chrono.ChVectorD(
-        #     p1_pos_x + 0.5, 1.2, p1_pos_z
-        # )
-        # self._p1_racket.SetPos(p1_racket_pos)
-        # self._p1_racket.SetRot(chrono.ChQuaternionD(-0.3801884, 0, 0, 0.9249091))
-        # self._p1_racket.SetRot_dt(chrono.ChQuaternionD(0, 0, 0, -1))
-        # self._p1_racket.SetRot_dtdt(chrono.ChQuaternionD(0, 0, 0, -1))
-        # self._p1_racket.AddAsset(ORANGE_TEXTURE_POVRAY)
-
-        # Link player 1 and player 1's racket
-        # self._p1_link: chrono.ChLinkRevolute = chrono.ChLinkRevolute()
-        # self._p1_link.Initialize(
-        #     self._player1,
-        #     self._p1_racket,
-        #     True,
-        #     chrono.ChFrameD(),
-        #     chrono.ChFrameD(),
-        # )
 
         # Initialise player 2 body
         self._player2: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
@@ -115,8 +98,6 @@ class Simulation:
         # Add bodies to physics system
         self._sys.Add(self._ball)
         self._sys.Add(self._player1)
-        # self._sys.Add(self._p1_racket)
-        # self._sys.Add(self._p1_link)
         self._sys.Add(self._player2)
         self._add_fixed_objects()
 
@@ -146,7 +127,7 @@ class Simulation:
     ) -> None:
         if not export and not visualise:
             e: ValueError = ValueError(
-                "Simulation did not run, visualise and export disabled."
+                "Simulation did not run, visualise and export both disabled."
             )
             logging.exception(e)
             raise e
@@ -217,6 +198,20 @@ class Simulation:
                 vis_app.DoStep()
                 vis_app.BeginScene()
                 vis_app.DrawAll()
+
+                # Emulate player movement around the back of the court (backwards and forwards).
+                if (self._player1.GetPos().z >= -0.5):
+                    self._player1.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
+
+                if (self._player1.GetPos().z <= -3.1):
+                    self._player1.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
+
+                if (self._player2.GetPos().z >= -0.5):
+                    self._player2.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
+
+                if (self._player2.GetPos().z <= -3):
+                    self._player2.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
+
                 vis_app.DoStep()
                 vis_app.EndScene()
 

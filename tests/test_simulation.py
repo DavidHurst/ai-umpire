@@ -6,7 +6,7 @@ import pychrono as chrono
 from ai_umpire.simulation.sim import Simulation
 
 ROOT = Path("C:\\Users\\david\\Data\\AI Umpire DS")
-SIM_ID = 0
+SIM_ID = 1
 
 
 @pytest.fixture
@@ -15,15 +15,16 @@ def sim_instance():
         sim_id=SIM_ID,
         root=ROOT,
         step_sz=0.001,
-        ball_origin=chrono.ChVectorD(-2, 1, -2),
-        ball_speed=chrono.ChVectorD(5.5, 6, 70),
-        ball_acc=chrono.ChVectorD(0, 2, 3),
-        p1_pos_x=0.0,
-        p1_pos_z=-2.5,
-        p1_speed=chrono.ChVectorD(-2, 0, 4),
-        p2_pos_x=1.0,
-        p2_pos_z=-1.0,
-        p2_speed=chrono.ChVectorD(1.5, 0, 4),
+        ball_origin=chrono.ChVectorD(3, 0.25, -4),
+        ball_speed=chrono.ChVectorD(0, 7, 55),
+        ball_acc=chrono.ChVectorD(0, 0, 0),
+        ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
+        p1_pos_x=2,
+        p1_pos_z=-3,
+        p1_speed=chrono.ChVectorD(-2, 0, 3),
+        p2_pos_x=0,
+        p2_pos_z=-1.5,
+        p2_speed=chrono.ChVectorD(2, 0, -3),
     )
     return sim
 

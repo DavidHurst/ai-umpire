@@ -11,7 +11,6 @@ from typing import List
 from matplotlib import pyplot as plt
 from skimage import img_as_ubyte
 from skimage.feature import blob_log, blob_dog, blob_doh
-from skimage.io import imshow
 
 from tqdm import tqdm
 
@@ -52,7 +51,7 @@ class Localiser:
         return np.array(foreground_segmented_frames)
 
     def localise_ball_blob_filter(
-            self, foreground_segmented_frames: np.ndarray
+        self, foreground_segmented_frames: np.ndarray
     ) -> None:
         # Setup SimpleBlobDetector parameters.
         params = cv2.SimpleBlobDetector_Params()
@@ -85,8 +84,8 @@ class Localiser:
         detector = cv2.SimpleBlobDetector_create(params)
 
         for i in tqdm(
-                range(foreground_segmented_frames.shape[0]),
-                desc="Detecting blobs in frames",
+            range(foreground_segmented_frames.shape[0]),
+            desc="Detecting blobs in frames",
         ):
             frame: np.ndarray = foreground_segmented_frames[i]
 
@@ -100,10 +99,10 @@ class Localiser:
 
             # Draw blobs
             colour_im_path = (
-                    Path(
-                        "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                    )
-                    / f"frame{str(i).zfill(5)}.jpg"
+                Path(
+                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
+                )
+                / f"frame{str(i).zfill(5)}.jpg"
             )
             colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
             display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
@@ -125,11 +124,11 @@ class Localiser:
         pass
 
     def localise_ball_hough_circle(
-            self, foreground_segmented_frames: np.ndarray
+        self, foreground_segmented_frames: np.ndarray
     ) -> None:
         for i in tqdm(
-                range(foreground_segmented_frames.shape[0]),
-                desc="Detecting circles in frames",
+            range(foreground_segmented_frames.shape[0]),
+            desc="Detecting circles in frames",
         ):
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
@@ -154,10 +153,10 @@ class Localiser:
 
             # Draw circles
             colour_im_path = (
-                    Path(
-                        "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                    )
-                    / f"frame{str(i).zfill(5)}.jpg"
+                Path(
+                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
+                )
+                / f"frame{str(i).zfill(5)}.jpg"
             )
             colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
             display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
@@ -170,17 +169,21 @@ class Localiser:
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_hough_circle.jpg", display_img)
 
-    def localise_ball_blob(self, foreground_segmented_frames: np.ndarray, method: str) -> None:
+    def localise_ball_blob(
+        self, foreground_segmented_frames: np.ndarray, method: str
+    ) -> None:
         for i in tqdm(
-                range(foreground_segmented_frames.shape[0]),
-                desc="Detecting blobs in frames (LoG)",
+            range(foreground_segmented_frames.shape[0]),
+            desc=f"Detecting blobs, method={method}",
         ):
-            method_types: List[str] = ['log', 'dog', 'doh']
+            method_types: List[str] = ["log", "dog", "doh"]
             if method not in method_types:
-                e: ValueError = ValueError(f'Invalid method/method not supported, available options: {method_types}')
+                e: ValueError = ValueError(
+                    f"Invalid method/method not supported, available options: {method_types}"
+                )
                 logging.exception(e)
                 raise e
-            logging.info(f'Detecting blobs using {method}.')
+            logging.info(f"Detecting blobs using {method}.")
 
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
@@ -190,7 +193,7 @@ class Localiser:
 
             # Detect blobs- can give kernel std devs as sequence per axis maybe to elongate blobs?
             blobs: np.ndarray = None
-            if method == 'log':
+            if method == "log":
                 blobs: np.ndarray = blob_log(
                     frame_normed_uint8,
                     min_sigma=1,
@@ -198,7 +201,7 @@ class Localiser:
                     num_sigma=4,
                     threshold=0.1,
                 )
-            if method == 'dog':
+            if method == "dog":
                 blobs = blob_dog(
                     frame_normed_uint8,
                     min_sigma=1,
@@ -206,7 +209,7 @@ class Localiser:
                     sigma_ratio=1.6,
                     threshold=0.1,
                 )
-            if method == 'doh':
+            if method == "doh":
                 blobs: np.ndarray = blob_doh(
                     frame_normed_uint8,
                     min_sigma=1,
@@ -216,15 +219,15 @@ class Localiser:
                 )
 
             # Compute radii in the third column
-            if method == 'log' or 'dog':
+            if method == "log" or "dog":
                 blobs[:, 2] = blobs[:, 2] * sqrt(2)
 
             # Draw detected blobs
             colour_im_path = (
-                    Path(
-                        "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                    )
-                    / f"frame{str(i).zfill(5)}.jpg"
+                Path(
+                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
+                )
+                / f"frame{str(i).zfill(5)}.jpg"
             )
             colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
             display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
