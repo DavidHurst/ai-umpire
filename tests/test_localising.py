@@ -31,8 +31,8 @@ def test_extract_frames(localiser_instance) -> None:
     assert extracted_frames is not None
     assert extracted_frames.shape[0] > 0
     assert (
-            len(glob.glob(str(BLURRED_DIR_PATH / f"sim_{SIM_ID}_blurred" / "*.jpg)")))
-            == extracted_frames.shape[0]
+        len(glob.glob(str(BLURRED_DIR_PATH / f"sim_{SIM_ID}_blurred" / "*.jpg)")))
+        == extracted_frames.shape[0]
     )
 
 
@@ -46,13 +46,16 @@ def test_segment_foreground(localiser_instance) -> None:
     assert extracted_frames is not None
     assert foreground_segmented_frames.shape[0] == extracted_frames.shape[0] - 1
 
+
 def test_dilation(localiser_instance) -> None:
     extracted_frames: np.ndarray = localiser_instance.extract_frames(VID_PATH)
     foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
         extracted_frames
     )
 
-    dilated_frames: np.ndarray = localiser_instance.apply_dilation(foreground_segmented_frames)
+    dilated_frames: np.ndarray = localiser_instance.apply_dilation(
+        foreground_segmented_frames
+    )
     assert dilated_frames.dtype == np.uint8
     assert dilated_frames.shape == foreground_segmented_frames.shape
 
@@ -73,19 +76,11 @@ def test_detection_hough_circle(localiser_instance) -> None:
     localiser_instance.localise_ball_hough_circle(foreground_segmented_frames)
 
 
-def test_detection_hough(localiser_instance) -> None:
-    foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
-        localiser_instance.extract_frames(VID_PATH)
-    )
-
-    localiser_instance.localise_ball_hough(foreground_segmented_frames)
-
-
-@pytest.mark.parametrize("detection_method", ['log'])
+@pytest.mark.parametrize("detection_method", ["log"])
 def test_detection_blob(localiser_instance, detection_method) -> None:
     foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
         localiser_instance.extract_frames(VID_PATH)
     )
+    processed = localiser_instance.apply_dilation(foreground_segmented_frames)
 
-    localiser_instance.localise_ball_blob(foreground_segmented_frames, detection_method)
-
+    localiser_instance.localise_ball_blob(processed, detection_method)

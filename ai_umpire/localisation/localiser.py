@@ -43,36 +43,27 @@ class Localiser:
     def segment_foreground(self, frames: np.ndarray) -> np.ndarray:
         foreground_segmented_frames: List[np.ndarray] = []
 
-        flattened_frames = np.vstack([f.reshape(1, f.shape[0] * f.shape[1]) for f in frames])
-        print([f.shape for f in frames])
-        # print(f'flattend shape={flattened_frames.shape}')
-        # median_image = np.median(frames, axis=0).reshape(frames.shape[1:])
-        # print(f'median image shape={median_image.shape}')
-        # plt.imshow(median_image)
-        # plt.show()
-        exit()
+        for i in tqdm(range(1, frames.shape[0] - 1), desc="Segmenting foreground"):
+            preceding: np.ndarray = np.mean(frames[i - 1], axis=2)
+            current: np.ndarray = np.mean(frames[i], axis=2)
+            succeeding: np.ndarray = np.mean(frames[i + 1], axis=2)
 
-        for i in tqdm(range(1, frames.shape[0]), desc="Segmenting foreground"):
-            first_grey: np.ndarray = np.mean(frames[i - 1], axis=2)
-            second_grey: np.ndarray = np.mean(frames[i], axis=2)
+            # diff = current - preceding
+            triple_diff = cv.bitwise_and(current - preceding, succeeding - current)
 
-            foreground_segmented_frames.append(first_grey - second_grey)
+            # fig, axs = plt.subplots(1, 2)
+            # axs[0].imshow(diff)
+            # axs[1].imshow(triple_diff)
+            #
+            # axs[0].set_title("Normal Diff")
+            # axs[1].set_title("Diff Boolean")
+            #
+            # axs[0].axis("off")
+            # axs[1].axis("off")
+            # plt.tight_layout()
+            # plt.show()
 
-
-
-            fig, axs = plt.subplots(2, 2)
-            axs[0, 0].imshow(first_grey - second_grey)
-            axs[0, 1].imshow(dilated_frame)
-            axs[1, 0].imshow()
-
-            axs[0, 0].set_title("Normal Diff")
-            axs[0, 1].set_title("Median of Video")
-            axs[1, 0].set_title("Diff of Frame from Median Image")
-
-            axs[0, 0].axis("off")
-            axs[0, 1].axis("off")
-            axs[1, 0].axis("off")
-            plt.show()
+            foreground_segmented_frames.append(triple_diff)
 
         return np.array(foreground_segmented_frames)
 
@@ -92,38 +83,42 @@ class Localiser:
 
             # Apply opening to frame
             dilated_frame: np.ndarray = cv.morphologyEx(
-                src=frame_normed_uint8, op=cv.MORPH_DILATE, kernel=kernel, iterations=1
+                src=frame_normed_uint8, op=cv.MORPH_DILATE, kernel=kernel, iterations=2
             )
 
             # Apply binary thresholding with otsu's method
             _, thresh = cv.threshold(
-                dilated_frame, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
+                dilated_frame, 160, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
             )
 
             # Apply blur to reduce noise and threshold
-            blur = cv.GaussianBlur(dilated_frame, (3, 3), 0)
-            _, thresh_blur = cv.threshold(
-                blur, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
+            blur = cv.GaussianBlur(frame_normed_uint8, (5, 5), 0)
+            blur_dilate: np.ndarray = cv.morphologyEx(
+                src=blur, op=cv.MORPH_DILATE, kernel=kernel, iterations=3
+            )
+            _, blur_dilate_thresh = cv.threshold(
+                blur_dilate, 160, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
             )
 
             # fig, axs = plt.subplots(2, 2)
             # axs[0, 0].imshow(frame_normed_uint8, cmap="gray", vmin=0, vmax=255)
             # axs[0, 1].imshow(dilated_frame, cmap="gray", vmin=0, vmax=255)
             # axs[1, 0].imshow(thresh, cmap="gray", vmin=0, vmax=255)
-            # axs[1, 1].imshow(thresh_blur, cmap="gray", vmin=0, vmax=255)
-            # 
+            # axs[1, 1].imshow(blur_dilate_thresh, cmap="gray", vmin=0, vmax=255)
+            #
             # axs[0, 0].set_title("Foreground Segmented")
-            # axs[0, 1].set_title("Dilated")
-            # axs[1, 0].set_title("Dilated + Threshold")
-            # axs[1, 1].set_title("Dilated + Threshold + Blur")
-            # 
+            # axs[0, 1].set_title("Dilate (x3)")
+            # axs[1, 0].set_title("Dilate (x3) -> Threshold")
+            # axs[1, 1].set_title("Dilate (x3) -> Blur -> Threshold")
+            #
             # axs[0, 0].axis("off")
             # axs[0, 1].axis("off")
             # axs[1, 0].axis("off")
             # axs[1, 1].axis("off")
+            # plt.tight_layout()
             # plt.show()
 
-            frames.append(thresh_blur)
+            frames.append(blur_dilate_thresh)
 
         return np.array(frames)
 
@@ -197,9 +192,6 @@ class Localiser:
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_simple_blob_filter.jpg", im_with_keypoints)
 
-    def localise_ball_hough(self, foreground_segmented_frames: np.ndarray):
-        pass
-
     def localise_ball_hough_circle(
         self, foreground_segmented_frames: np.ndarray
     ) -> None:
@@ -263,19 +255,20 @@ class Localiser:
             logging.info(f"Detecting blobs using {method}.")
 
             # Normalise to uint8 range and convert dtype to uint8
-            frame: np.ndarray = foreground_segmented_frames[i]
-            frame_normed_uint8 = cv.normalize(
-                frame, None, 0, 255, cv.NORM_MINMAX
-            ).astype(np.uint8)
+            # frame: np.ndarray = foreground_segmented_frames[i]
+            # frame_normed_uint8 = cv.normalize(
+            #     frame, None, 0, 255, cv.NORM_MINMAX
+            # ).astype(np.uint8)
+            frame_normed_uint8 = foreground_segmented_frames[i]
 
             # Detect blobs- can give kernel std devs as sequence per axis maybe to elongate blobs?
             blobs: np.ndarray = None
             if method == "log":
                 blobs: np.ndarray = blob_log(
                     frame_normed_uint8,
-                    min_sigma=1,
+                    min_sigma=5,
                     max_sigma=20,
-                    num_sigma=4,
+                    num_sigma=5,
                     threshold=0.1,
                 )
             if method == "dog":
@@ -312,7 +305,17 @@ class Localiser:
                 y, x, r = blob
                 cv.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
 
-                # cv.imshow(f"Frame #{i} with Blobs Drawn, Method={method}", display_img)
-                # cv.waitKey(0)
-            # plt.tight_layout()
-            # plt.imsave(f"frame_{str(i).zfill(5)}_{method}.jpg", display_img)
+            fig, axs = plt.subplots(1, 2)
+            axs[0].imshow(frame_normed_uint8, cmap="gray", vmin=0, vmax=255)
+            axs[1].imshow(display_img, cmap="gray", vmin=0, vmax=255)
+
+
+            axs[0].set_title("Foreground Segmentation")
+            axs[1].set_title("Blob Detection")
+
+            axs[0].axis("off")
+            axs[1].axis("off")
+            plt.tight_layout()
+            plt.show()
+            # fig.savefig(f"frame_{str(i).zfill(5)}_{method}.png")
+            plt.cla()
