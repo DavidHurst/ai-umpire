@@ -4,7 +4,7 @@ import logging
 from math import sqrt
 from pathlib import Path
 
-import cv2
+import cv2 as cv
 import numpy as np
 from typing import List
 
@@ -22,7 +22,7 @@ class Localiser:
 
     def extract_frames(self, vid_path: Path) -> np.ndarray:
         logging.info("Extracting frames from video.")
-        v_cap: cv2.VideoCapture = cv2.VideoCapture(str(vid_path))
+        v_cap: cv.VideoCapture = cv.VideoCapture(str(vid_path))
         frames: List[np.ndarray] = []
 
         pbar: tqdm = tqdm(desc="Extracting frames")
@@ -42,19 +42,96 @@ class Localiser:
 
     def segment_foreground(self, frames: np.ndarray) -> np.ndarray:
         foreground_segmented_frames: List[np.ndarray] = []
+
+        flattened_frames = np.vstack([f.reshape(1, f.shape[0] * f.shape[1]) for f in frames])
+        print([f.shape for f in frames])
+        # print(f'flattend shape={flattened_frames.shape}')
+        # median_image = np.median(frames, axis=0).reshape(frames.shape[1:])
+        # print(f'median image shape={median_image.shape}')
+        # plt.imshow(median_image)
+        # plt.show()
+        exit()
+
         for i in tqdm(range(1, frames.shape[0]), desc="Segmenting foreground"):
             first_grey: np.ndarray = np.mean(frames[i - 1], axis=2)
             second_grey: np.ndarray = np.mean(frames[i], axis=2)
 
             foreground_segmented_frames.append(first_grey - second_grey)
 
+
+
+            fig, axs = plt.subplots(2, 2)
+            axs[0, 0].imshow(first_grey - second_grey)
+            axs[0, 1].imshow(dilated_frame)
+            axs[1, 0].imshow()
+
+            axs[0, 0].set_title("Normal Diff")
+            axs[0, 1].set_title("Median of Video")
+            axs[1, 0].set_title("Diff of Frame from Median Image")
+
+            axs[0, 0].axis("off")
+            axs[0, 1].axis("off")
+            axs[1, 0].axis("off")
+            plt.show()
+
         return np.array(foreground_segmented_frames)
+
+    def apply_dilation(self, foreground_segmented_frames: np.ndarray) -> np.ndarray:
+        kernel: np.ndarray = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
+        frames: List[np.ndarray] = []
+
+        for i in tqdm(
+            range(foreground_segmented_frames.shape[0]), desc="Applying dilation"
+        ):
+            frame: np.ndarray = foreground_segmented_frames[i]
+
+            # Normalise to uint8 range and convert dtype to uint8
+            frame_normed_uint8 = cv.normalize(
+                frame, None, 0, 255, cv.NORM_MINMAX
+            ).astype(np.uint8)
+
+            # Apply opening to frame
+            dilated_frame: np.ndarray = cv.morphologyEx(
+                src=frame_normed_uint8, op=cv.MORPH_DILATE, kernel=kernel, iterations=1
+            )
+
+            # Apply binary thresholding with otsu's method
+            _, thresh = cv.threshold(
+                dilated_frame, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
+            )
+
+            # Apply blur to reduce noise and threshold
+            blur = cv.GaussianBlur(dilated_frame, (3, 3), 0)
+            _, thresh_blur = cv.threshold(
+                blur, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
+            )
+
+            # fig, axs = plt.subplots(2, 2)
+            # axs[0, 0].imshow(frame_normed_uint8, cmap="gray", vmin=0, vmax=255)
+            # axs[0, 1].imshow(dilated_frame, cmap="gray", vmin=0, vmax=255)
+            # axs[1, 0].imshow(thresh, cmap="gray", vmin=0, vmax=255)
+            # axs[1, 1].imshow(thresh_blur, cmap="gray", vmin=0, vmax=255)
+            # 
+            # axs[0, 0].set_title("Foreground Segmented")
+            # axs[0, 1].set_title("Dilated")
+            # axs[1, 0].set_title("Dilated + Threshold")
+            # axs[1, 1].set_title("Dilated + Threshold + Blur")
+            # 
+            # axs[0, 0].axis("off")
+            # axs[0, 1].axis("off")
+            # axs[1, 0].axis("off")
+            # axs[1, 1].axis("off")
+            # plt.show()
+
+            frames.append(thresh_blur)
+
+        return np.array(frames)
 
     def localise_ball_blob_filter(
         self, foreground_segmented_frames: np.ndarray
     ) -> None:
         # Setup SimpleBlobDetector parameters.
-        params = cv2.SimpleBlobDetector_Params()
+        params = cv.SimpleBlobDetector_Params()
 
         params.filterByColor = False
 
@@ -81,7 +158,7 @@ class Localiser:
         params.maxInertiaRatio = 1
 
         # Create a detector with the parameters
-        detector = cv2.SimpleBlobDetector_create(params)
+        detector = cv.SimpleBlobDetector_create(params)
 
         for i in tqdm(
             range(foreground_segmented_frames.shape[0]),
@@ -90,8 +167,8 @@ class Localiser:
             frame: np.ndarray = foreground_segmented_frames[i]
 
             # Normalise to uint8 range and convert dtype to uint8
-            frame_normed_uint8 = cv2.normalize(
-                frame, None, 0, 255, cv2.NORM_MINMAX
+            frame_normed_uint8 = cv.normalize(
+                frame, None, 0, 255, cv.NORM_MINMAX
             ).astype(np.uint8)
 
             # Detect blobs
@@ -104,19 +181,19 @@ class Localiser:
                 )
                 / f"frame{str(i).zfill(5)}.jpg"
             )
-            colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
-            display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
-            im_with_keypoints = cv2.drawKeypoints(
+            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
+            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
+            im_with_keypoints = cv.drawKeypoints(
                 display_img,
                 keypoints,
                 np.array([]),
                 (0, 0, 255),
-                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+                cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
             )
 
             # Show keypoints
-            # cv2.imshow(f"Frame {i} with Keypoints Drawn", im_with_keypoints)
-            # cv2.waitKey(0)
+            # cv.imshow(f"Frame {i} with Keypoints Drawn", im_with_keypoints)
+            # cv.waitKey(0)
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_simple_blob_filter.jpg", im_with_keypoints)
 
@@ -132,18 +209,18 @@ class Localiser:
         ):
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
-            frame_normed_uint8 = cv2.normalize(
-                frame, None, 0, 255, cv2.NORM_MINMAX
+            frame_normed_uint8 = cv.normalize(
+                frame, None, 0, 255, cv.NORM_MINMAX
             ).astype(np.uint8)
 
             # Detect circles
             min_dist_between_circles: float = frame_normed_uint8.shape[0] * 0.1
             max_radius: int = int(frame_normed_uint8.shape[1] * 0.1)
             print(f"Max radius={max_radius}, min dist={min_dist_between_circles}")
-            circles_detected = cv2.HoughCircles(
+            circles_detected = cv.HoughCircles(
                 image=frame_normed_uint8,
                 minDist=min_dist_between_circles,
-                method=cv2.HOUGH_GRADIENT_ALT,
+                method=cv.HOUGH_GRADIENT_ALT,
                 dp=1,
                 param1=400,
                 param2=0.2,
@@ -158,14 +235,14 @@ class Localiser:
                 )
                 / f"frame{str(i).zfill(5)}.jpg"
             )
-            colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
-            display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
+            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
+            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
             if circles_detected is not None:
                 for x, y, r in circles_detected[0]:
-                    cv2.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
+                    cv.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
 
-            # cv2.imshow(f"Frame {i} with Circles Drawn", display_img)
-            # cv2.waitKey(0)
+            # cv.imshow(f"Frame {i} with Circles Drawn", display_img)
+            # cv.waitKey(0)
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_hough_circle.jpg", display_img)
 
@@ -187,8 +264,8 @@ class Localiser:
 
             # Normalise to uint8 range and convert dtype to uint8
             frame: np.ndarray = foreground_segmented_frames[i]
-            frame_normed_uint8 = cv2.normalize(
-                frame, None, 0, 255, cv2.NORM_MINMAX
+            frame_normed_uint8 = cv.normalize(
+                frame, None, 0, 255, cv.NORM_MINMAX
             ).astype(np.uint8)
 
             # Detect blobs- can give kernel std devs as sequence per axis maybe to elongate blobs?
@@ -229,13 +306,13 @@ class Localiser:
                 )
                 / f"frame{str(i).zfill(5)}.jpg"
             )
-            colour_im = cv2.imread(str(colour_im_path), cv2.IMREAD_GRAYSCALE)
-            display_img = cv2.cvtColor(colour_im, cv2.COLOR_GRAY2BGR)
+            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
+            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
             for blob in blobs:
                 y, x, r = blob
-                cv2.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
+                cv.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
 
-                # cv2.imshow(f"Frame #{i} with Blobs Drawn, Method={method}", display_img)
-                # cv2.waitKey(0)
+                # cv.imshow(f"Frame #{i} with Blobs Drawn, Method={method}", display_img)
+                # cv.waitKey(0)
             # plt.tight_layout()
             # plt.imsave(f"frame_{str(i).zfill(5)}_{method}.jpg", display_img)

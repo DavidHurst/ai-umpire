@@ -200,16 +200,16 @@ class Simulation:
                 vis_app.DrawAll()
 
                 # Emulate player movement around the back of the court (backwards and forwards).
-                if (self._player1.GetPos().z >= -0.5):
+                if self._player1.GetPos().z >= -0.5:
                     self._player1.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
 
-                if (self._player1.GetPos().z <= -3.1):
+                if self._player1.GetPos().z <= -3.1:
                     self._player1.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
 
-                if (self._player2.GetPos().z >= -0.5):
+                if self._player2.GetPos().z >= -0.5:
                     self._player2.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
 
-                if (self._player2.GetPos().z <= -3):
+                if self._player2.GetPos().z <= -3:
                     self._player2.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
 
                 vis_app.DoStep()

@@ -31,7 +31,7 @@ class DataGenerator:
         i = 0
         blurred_frame_count = 0
 
-        for f_path in tqdm(frame_paths, desc="Processing frames"):
+        for f_path in tqdm(frame_paths, desc="Applying motion blur"):
             frame = cv2.imread(f_path, 1)
             frame_rbg = frame[..., ::-1].copy()
             frame_arr = np.array(frame_rbg, dtype=float)

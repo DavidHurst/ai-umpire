@@ -46,6 +46,16 @@ def test_segment_foreground(localiser_instance) -> None:
     assert extracted_frames is not None
     assert foreground_segmented_frames.shape[0] == extracted_frames.shape[0] - 1
 
+def test_dilation(localiser_instance) -> None:
+    extracted_frames: np.ndarray = localiser_instance.extract_frames(VID_PATH)
+    foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
+        extracted_frames
+    )
+
+    dilated_frames: np.ndarray = localiser_instance.apply_dilation(foreground_segmented_frames)
+    assert dilated_frames.dtype == np.uint8
+    assert dilated_frames.shape == foreground_segmented_frames.shape
+
 
 def test_detection_blob_filter(localiser_instance) -> None:
     foreground_segmented_frames: np.ndarray = localiser_instance.segment_foreground(
