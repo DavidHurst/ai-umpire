@@ -6,125 +6,26 @@ from pathlib import Path
 
 import cv2 as cv
 import numpy as np
-from typing import List
+from typing import List, Tuple
 
 from matplotlib import pyplot as plt
-from skimage import img_as_ubyte
 from skimage.feature import blob_log, blob_dog, blob_doh
 
 from tqdm import tqdm
 
+from ai_umpire.util import (
+    extract_frames_from_vid,
+    difference_frames,
+    blur_frames,
+    binarize_frames,
+    apply_morph_op,
+)
+
 
 class Localiser:
-    def __init__(self, root: Path) -> None:
-        self._root: Path = root
-        self._frames: np.ndarray
+    def _localise_ball_blob_filter(self, frames: np.ndarray) -> np.ndarray:
+        detections: List[List] = []
 
-    def extract_frames(self, vid_path: Path) -> np.ndarray:
-        logging.info("Extracting frames from video.")
-        v_cap: cv.VideoCapture = cv.VideoCapture(str(vid_path))
-        frames: List[np.ndarray] = []
-
-        pbar: tqdm = tqdm(desc="Extracting frames")
-        while v_cap.isOpened():
-            ret, frame = v_cap.read()
-
-            # If frame is read correctly ret is True
-            if ret:
-                frames.append(frame)
-                pbar.update(1)
-            else:
-                break
-
-        v_cap.release()
-        logging.info("Frames extracted successfully.")
-        return np.array(frames)
-
-    def segment_foreground(self, frames: np.ndarray) -> np.ndarray:
-        foreground_segmented_frames: List[np.ndarray] = []
-
-        for i in tqdm(range(1, frames.shape[0] - 1), desc="Segmenting foreground"):
-            preceding: np.ndarray = np.mean(frames[i - 1], axis=2)
-            current: np.ndarray = np.mean(frames[i], axis=2)
-            succeeding: np.ndarray = np.mean(frames[i + 1], axis=2)
-
-            # diff = current - preceding
-            triple_diff = cv.bitwise_and(current - preceding, succeeding - current)
-
-            # fig, axs = plt.subplots(1, 2)
-            # axs[0].imshow(diff)
-            # axs[1].imshow(triple_diff)
-            #
-            # axs[0].set_title("Normal Diff")
-            # axs[1].set_title("Diff Boolean")
-            #
-            # axs[0].axis("off")
-            # axs[1].axis("off")
-            # plt.tight_layout()
-            # plt.show()
-
-            foreground_segmented_frames.append(triple_diff)
-
-        return np.array(foreground_segmented_frames)
-
-    def apply_dilation(self, foreground_segmented_frames: np.ndarray) -> np.ndarray:
-        kernel: np.ndarray = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
-        frames: List[np.ndarray] = []
-
-        for i in tqdm(
-            range(foreground_segmented_frames.shape[0]), desc="Applying dilation"
-        ):
-            frame: np.ndarray = foreground_segmented_frames[i]
-
-            # Normalise to uint8 range and convert dtype to uint8
-            frame_normed_uint8 = cv.normalize(
-                frame, None, 0, 255, cv.NORM_MINMAX
-            ).astype(np.uint8)
-
-            # Apply opening to frame
-            dilated_frame: np.ndarray = cv.morphologyEx(
-                src=frame_normed_uint8, op=cv.MORPH_DILATE, kernel=kernel, iterations=2
-            )
-
-            # Apply binary thresholding with otsu's method
-            _, thresh = cv.threshold(
-                dilated_frame, 160, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
-            )
-
-            # Apply blur to reduce noise and threshold
-            blur = cv.GaussianBlur(frame_normed_uint8, (5, 5), 0)
-            blur_dilate: np.ndarray = cv.morphologyEx(
-                src=blur, op=cv.MORPH_DILATE, kernel=kernel, iterations=3
-            )
-            _, blur_dilate_thresh = cv.threshold(
-                blur_dilate, 160, 255, cv.THRESH_BINARY + cv.THRESH_OTSU
-            )
-
-            # fig, axs = plt.subplots(2, 2)
-            # axs[0, 0].imshow(frame_normed_uint8, cmap="gray", vmin=0, vmax=255)
-            # axs[0, 1].imshow(dilated_frame, cmap="gray", vmin=0, vmax=255)
-            # axs[1, 0].imshow(thresh, cmap="gray", vmin=0, vmax=255)
-            # axs[1, 1].imshow(blur_dilate_thresh, cmap="gray", vmin=0, vmax=255)
-            #
-            # axs[0, 0].set_title("Foreground Segmented")
-            # axs[0, 1].set_title("Dilate (x3)")
-            # axs[1, 0].set_title("Dilate (x3) -> Threshold")
-            # axs[1, 1].set_title("Dilate (x3) -> Blur -> Threshold")
-            #
-            # axs[0, 0].axis("off")
-            # axs[0, 1].axis("off")
-            # axs[1, 0].axis("off")
-            # axs[1, 1].axis("off")
-            # plt.tight_layout()
-            # plt.show()
-
-            frames.append(blur_dilate_thresh)
-
-        return np.array(frames)
-
-    def localise_ball_blob_filter(
-        self, foreground_segmented_frames: np.ndarray
-    ) -> None:
         # Setup SimpleBlobDetector parameters.
         params = cv.SimpleBlobDetector_Params()
 
@@ -156,94 +57,64 @@ class Localiser:
         detector = cv.SimpleBlobDetector_create(params)
 
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc="Detecting blobs in frames",
+            range(frames.shape[0]),
+            desc="Localising ball (blob filter)",
         ):
-            frame: np.ndarray = foreground_segmented_frames[i]
-
-            # Normalise to uint8 range and convert dtype to uint8
-            frame_normed_uint8 = cv.normalize(
-                frame, None, 0, 255, cv.NORM_MINMAX
-            ).astype(np.uint8)
-
             # Detect blobs
-            keypoints = detector.detect(frame_normed_uint8)
+            keypoints = detector.detect(frames[i])
 
-            # Draw blobs
-            colour_im_path = (
-                Path(
-                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                )
-                / f"frame{str(i).zfill(5)}.jpg"
-            )
-            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
-            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
-            im_with_keypoints = cv.drawKeypoints(
-                display_img,
-                keypoints,
-                np.array([]),
-                (0, 0, 255),
-                cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
-            )
+            # # Return first blob detected as detection (temporary)
+            if keypoints:
+                for kp in keypoints:
+                    detections.append([kp.pt[1], kp.pt[0], kp.size])
+                    break
+            else:
+                # No detections made
+                detections.append([10, 10, 5])
 
-            # Show keypoints
-            # cv.imshow(f"Frame {i} with Keypoints Drawn", im_with_keypoints)
-            # cv.waitKey(0)
-            # plt.tight_layout()
-            # plt.imsave(f"frame_{str(i).zfill(5)}_simple_blob_filter.jpg", im_with_keypoints)
+        return np.array(detections)
 
-    def localise_ball_hough_circle(
-        self, foreground_segmented_frames: np.ndarray
-    ) -> None:
+    def _localise_ball_hough_circle(self, frames: np.ndarray) -> np.ndarray:
+        detections: List[List] = []
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc="Detecting circles in frames",
+            range(frames.shape[0]),
+            desc="Localising ball (Hough circle)",
         ):
-            # Normalise to uint8 range and convert dtype to uint8
-            frame: np.ndarray = foreground_segmented_frames[i]
-            frame_normed_uint8 = cv.normalize(
-                frame, None, 0, 255, cv.NORM_MINMAX
-            ).astype(np.uint8)
-
             # Detect circles
-            min_dist_between_circles: float = frame_normed_uint8.shape[0] * 0.1
-            max_radius: int = int(frame_normed_uint8.shape[1] * 0.1)
-            print(f"Max radius={max_radius}, min dist={min_dist_between_circles}")
+            max_radius: int = int(frames[i].shape[1] * 0.4)
             circles_detected = cv.HoughCircles(
-                image=frame_normed_uint8,
-                minDist=min_dist_between_circles,
-                method=cv.HOUGH_GRADIENT_ALT,
+                image=frames[i],
+                method=cv.HOUGH_GRADIENT,
                 dp=1,
-                param1=400,
-                param2=0.2,
+                minDist=20.0,
+                param1=50,
+                param2=30,
                 minRadius=0,
-                maxRadius=max_radius,
+                maxRadius=0
             )
 
-            # Draw circles
-            colour_im_path = (
-                Path(
-                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                )
-                / f"frame{str(i).zfill(5)}.jpg"
-            )
-            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
-            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
             if circles_detected is not None:
                 for x, y, r in circles_detected[0]:
-                    cv.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
+                    print(f'Frame #{i}: (x={x},y={y}), rad={r}')
+            else:
+                print("No detections")
 
-            # cv.imshow(f"Frame {i} with Circles Drawn", display_img)
-            # cv.waitKey(0)
-            # plt.tight_layout()
-            # plt.imsave(f"frame_{str(i).zfill(5)}_hough_circle.jpg", display_img)
+            # Return first detection (temporary)
+            if circles_detected is not None:
+                for x, y, r in circles_detected[0]:
+                    detections.append([y, x, r])
+                    break
+            else:
+                # No detections made
+                detections.append([10, 10, 5])
 
-    def localise_ball_blob(
-        self, foreground_segmented_frames: np.ndarray, method: str
-    ) -> None:
+        return np.array(detections)
+
+    def _localise_ball_blob(self, frames: np.ndarray, method: str) -> np.ndarray:
+        detections: List[List] = []
         for i in tqdm(
-            range(foreground_segmented_frames.shape[0]),
-            desc=f"Detecting blobs, method={method}",
+            range(frames.shape[0]),
+            desc=f"Localising ball ({method})",
         ):
             method_types: List[str] = ["log", "dog", "doh"]
             if method not in method_types:
@@ -254,34 +125,29 @@ class Localiser:
                 raise e
             logging.info(f"Detecting blobs using {method}.")
 
-            # Normalise to uint8 range and convert dtype to uint8
-            # frame: np.ndarray = foreground_segmented_frames[i]
-            # frame_normed_uint8 = cv.normalize(
-            #     frame, None, 0, 255, cv.NORM_MINMAX
-            # ).astype(np.uint8)
-            frame_normed_uint8 = foreground_segmented_frames[i]
+            frame = frames[i]
 
             # Detect blobs- can give kernel std devs as sequence per axis maybe to elongate blobs?
             blobs: np.ndarray = None
             if method == "log":
                 blobs: np.ndarray = blob_log(
-                    frame_normed_uint8,
-                    min_sigma=5,
-                    max_sigma=20,
-                    num_sigma=5,
-                    threshold=0.1,
+                    frame,
+                    min_sigma=70,
+                    max_sigma=100,
+                    num_sigma=3,
+                    threshold=0.0001,
                 )
-            if method == "dog":
+            elif method == "dog":
                 blobs = blob_dog(
-                    frame_normed_uint8,
-                    min_sigma=1,
-                    max_sigma=20,
+                    frame,
+                    min_sigma=5,
+                    max_sigma=10,
                     sigma_ratio=1.6,
-                    threshold=0.1,
+                    threshold=0.0001,
                 )
-            if method == "doh":
+            elif method == "doh":
                 blobs: np.ndarray = blob_doh(
-                    frame_normed_uint8,
+                    frame,
                     min_sigma=1,
                     max_sigma=20,
                     num_sigma=1,
@@ -291,31 +157,144 @@ class Localiser:
             # Compute radii in the third column
             if method == "log" or "dog":
                 blobs[:, 2] = blobs[:, 2] * sqrt(2)
-
-            # Draw detected blobs
-            colour_im_path = (
-                Path(
-                    "C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_0_blurred"
-                )
-                / f"frame{str(i).zfill(5)}.jpg"
-            )
-            colour_im = cv.imread(str(colour_im_path), cv.IMREAD_GRAYSCALE)
-            display_img = cv.cvtColor(colour_im, cv.COLOR_GRAY2BGR)
             for blob in blobs:
                 y, x, r = blob
-                cv.circle(display_img, (int(x), int(y)), int(r), (0, 0, 255))
+                print(f"Frame #{i}: (x={x},y={y}), rad={r}")
 
-            fig, axs = plt.subplots(1, 2)
-            axs[0].imshow(frame_normed_uint8, cmap="gray", vmin=0, vmax=255)
-            axs[1].imshow(display_img, cmap="gray", vmin=0, vmax=255)
+            # Return first blob detected as detection (temporary)
+            for blob in blobs:
+                y, x, r = blob
+                detections.append([y, x, r])
+                break
+
+        return np.array(detections)
+
+    def _localise_ball_contour(self, frames: np.ndarray) -> np.ndarray:
+        detections: List[List] = []
+        for i in tqdm(
+            range(frames.shape[0]),
+            desc=f"Localising ball (contour)",
+        ):
+            contours, hierarchy = cv.findContours(frames[i], cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            if contours:
+                display_im = cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
+                cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
+                plt.imshow(display_im)
+                plt.tight_layout()
+                plt.show()
+            else:
+                print("No detections")
+
+        return np.array(detections)
 
 
-            axs[0].set_title("Foreground Segmentation")
-            axs[1].set_title("Blob Detection")
 
-            axs[0].axis("off")
-            axs[1].axis("off")
+    def get_ball_candidates(
+        self,
+        vid_path: Path,
+        morph_op: str,
+        detection_method: str,
+        morph_op_iters: int,
+        morph_op_SE_shape: Tuple[int, int],
+        blur_kernel_size: Tuple[int, int],
+        blur_sigma_x: int,
+        binary_thresh_low: int,
+    ) -> np.ndarray:
+        # Extract frames from video
+        video_frames: np.ndarray = extract_frames_from_vid(vid_path)
+
+        # Preprocess frames
+        fg_seg_frames: np.ndarray = difference_frames(video_frames)
+        blurred_frames: np.ndarray = blur_frames(
+            fg_seg_frames, blur_kernel_size, blur_sigma_x
+        )
+        binary_frames: np.ndarray = binarize_frames(blurred_frames, binary_thresh_low)
+        morph_op_frames: np.ndarray = apply_morph_op(
+            binary_frames, morph_op, morph_op_iters, morph_op_SE_shape
+        )
+
+        # Detect ball in processed frames
+        if detection_method == "log" or detection_method == "dog":
+            detections: np.ndarray = self._localise_ball_blob(
+                morph_op_frames, detection_method
+            )
+        elif detection_method == "blob_filter":
+            detections: np.ndarray = self._localise_ball_blob_filter(morph_op_frames)
+        elif detection_method == "hough_circle":
+            detections: np.ndarray = self._localise_ball_hough_circle(morph_op_frames)
+        elif detection_method == "contour":
+            detections: np.ndarray = self._localise_ball_contour(morph_op_frames)
+        else:
+            e: ValueError = ValueError("Invalid detection method chosen.")
+            logging.exception(e)
+            raise e
+
+        self._display_detections(
+            [
+                video_frames,
+                fg_seg_frames,
+                blurred_frames,
+                binary_frames,
+                morph_op_frames,
+                detections,
+            ],
+            morph_op,
+            detection_method,
+        )
+
+        # Return frame detections
+        return detections
+
+    def _display_detections(
+        self, detection_phases_frames: List[np.ndarray], morph_op: str, det_method: str
+    ):
+        # Draw detections
+        for i in range(detection_phases_frames[0].shape[0]):
+            display_img: np.ndarray = detection_phases_frames[0][i].copy()
+            print(
+                f"Frame #{i} = ({detection_phases_frames[-1][i][0]}, {detection_phases_frames[-1][i][1]}), radius={detection_phases_frames[-1][i][2]}"
+            )
+            cv.circle(
+                display_img,
+                (
+                    int(detection_phases_frames[-1][i][0]),
+                    int(detection_phases_frames[-1][i][1]),
+                ),
+                int(detection_phases_frames[-1][i][2]),
+                (0, 0, 255),
+                -1,
+            )
+
+            fig, axs = plt.subplots(2, 3, figsize=(12, 6))
+            axs[0, 0].imshow(
+                cv.cvtColor(detection_phases_frames[0][i], cv.COLOR_BGR2RGB)
+            )
+            axs[0, 1].imshow(
+                cv.cvtColor(detection_phases_frames[1][i], cv.COLOR_BGR2RGB)
+            )
+            axs[0, 2].imshow(
+                cv.cvtColor(detection_phases_frames[2][i], cv.COLOR_BGR2RGB)
+            )
+            axs[1, 0].imshow(
+                detection_phases_frames[3][i], cmap="gray", vmin=0, vmax=255
+            )
+            axs[1, 1].imshow(
+                detection_phases_frames[4][i], cmap="gray", vmin=0, vmax=255
+            )
+            axs[1, 2].imshow(cv.cvtColor(display_img, cv.COLOR_BGR2RGB))
+
+            axs[0, 0].set_title("1. Original")
+            axs[0, 1].set_title("2. FG Seg.")
+            axs[0, 2].set_title("3. FG Seg.+Blur")
+            axs[1, 0].set_title("4. FG Seg.+Blur+Binarize")
+            axs[1, 1].set_title(f"5. FG Seg.+Blur+Binarize+Morph. Op.({morph_op})")
+            axs[1, 2].set_title(f"6. Detection ({det_method})")
+
+            axs[0, 0].axis("off")
+            axs[0, 1].axis("off")
+            axs[0, 2].axis("off")
+            axs[1, 0].axis("off")
+            axs[1, 1].axis("off")
+            axs[1, 2].axis("off")
             plt.tight_layout()
             plt.show()
-            # fig.savefig(f"frame_{str(i).zfill(5)}_{method}.png")
-            plt.cla()
