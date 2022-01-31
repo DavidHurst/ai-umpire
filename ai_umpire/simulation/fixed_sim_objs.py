@@ -1,7 +1,7 @@
 import pychrono as chrono
 
-from ai_umpire.simulation.sim_consts import *
-from ai_umpire.simulation.textures import *
+from ai_umpire.util.sim_consts import *
+from ai_umpire.util.textures import *
 
 __all__ = [
     "FLOOR",

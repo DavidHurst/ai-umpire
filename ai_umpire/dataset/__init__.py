@@ -1,3 +1,1 @@
-from . import data_gen
-
-__all__ = ["data_gen"]
+from .data_gen import *

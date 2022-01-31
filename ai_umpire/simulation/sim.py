@@ -1,31 +1,33 @@
 import logging
+import random
 from pathlib import Path
+from random import randint
+from typing import List
 
+import pandas as pd
 import pychrono as chrono
 import pychrono.irrlicht as chronoirr
 import pychrono.postprocess as postprocess
 from tqdm import tqdm
 
-from ai_umpire.simulation.fixed_sim_objs import *
-from ai_umpire.simulation.sim_consts import (
-    BACK_WALL_OUT_LINE_HEIGHT,
-    COURT_LENGTH,
-    PLAYER_HEIGHT,
-)
-from ai_umpire.simulation.textures import (
-    BALL_TEXTURE_POVRAY,
-    PURPLE_TEXTURE_POVRAY,
-    ORANGE_TEXTURE_POVRAY,
-)
-
 __all__ = ["Simulation"]
 
 # Ball material, parameters define collision properties
+from ai_umpire.simulation.fixed_sim_objs import *
+from ai_umpire.util import (
+    PLAYER_HEIGHT,
+    BALL_TEXTURE_POVRAY,
+    ORANGE_TEXTURE_POVRAY,
+    PURPLE_TEXTURE_POVRAY,
+    BACK_WALL_OUT_LINE_HEIGHT,
+    COURT_LENGTH,
+    MyReportContactCallback,
+)
+
 BALL_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
 BALL_MAT.SetRestitution(1)
 BALL_MAT.SetDampingF(1)
 BALL_MAT.SetCompliance(0.001)
-
 
 # Player material
 PLAYER_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
@@ -55,6 +57,7 @@ class Simulation:
         self._povray_out_dir_path: Path = (
             self._root / "generated_povray" / self._povray_out_file
         )
+        self._ball_pos_out_path = root / "ball_pos"
         self._sys: chrono.ChSystemNSC = chrono.ChSystemNSC()
         self._time_step: float = step_sz
 
@@ -124,8 +127,8 @@ class Simulation:
 
     def run_sim(
         self, duration: float, export: bool = True, visualise: bool = False
-    ) -> None:
-        if not export and not visualise:
+    ) -> List[List]:
+        if not visualise and not export:
             e: ValueError = ValueError(
                 "Simulation did not run, visualise and export both disabled."
             )
@@ -134,7 +137,17 @@ class Simulation:
         logging.info(f"Export enabled: {export}.")
         logging.info(f"Visualise enabled: {visualise}.")
 
+        random_moves: List[chrono.ChVectorD] = [
+            chrono.ChVectorD(-1, 0, 1),
+            chrono.ChVectorD(1, 0, -1),
+            chrono.ChVectorD(1, 0, 1),
+            chrono.ChVectorD(-1, 0, -1),
+        ]
+        ball_pos: List[List[float, float, float]]
+        contact_reporter: MyReportContactCallback = MyReportContactCallback()
+
         if export:
+            ball_pos: List[List[float, float, float]] = [[], [], []]
             logging.info("Simulating, rendering and exporting.")
             # Set up object that exports the simulation data to a format that POV-Ray can render
             pov_exporter: postprocess.ChPovRay = postprocess.ChPovRay(self._sys)
@@ -152,29 +165,31 @@ class Simulation:
                 chrono.ChVectorD(0, 7, 0), chrono.ChColor(1.2, 1.2, 1.2, 1), True
             )
             pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
-            pov_exporter.SetPictureSize(854, 480)  # 1280, 720
+            pov_exporter.SetPictureSize(854, 480)
             pov_exporter.SetAntialiasing(True, 6, 0.3)
             pov_exporter.AddAll()
             pov_exporter.ExportScript()
-            """
-                Commands to append to .ini file:
-                    Output_File_Type=J
-                    Quality=8
-                    Continue_Trace=on       # Continue rendering from last frame rendered if render was stopped.
-                    Work_Threads=2048
-            """
 
             # Run simulation one time step at a time exporting data for rendering at each time step
             pbar: tqdm = tqdm(
                 total=int(duration / self._time_step), desc="Running simulation"
             )
-            while self._sys.GetChTime() < duration:
+            while self._sys.GetChTime() < duration - self._time_step:
+                ball_pos[0].append(self._ball.GetPos().x)
+                ball_pos[1].append(self._ball.GetPos().y)
+                ball_pos[2].append(self._ball.GetPos().z)
                 pov_exporter.ExportData()
                 self._sys.DoStepDynamics(self._time_step)
                 pbar.update(1)
+                # Emulate random player movement
+                if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                    self._player1.SetPos_dt(random.choice(random_moves))
 
+                if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                    self._player2.SetPos_dt(random.choice(random_moves))
         if visualise:
             logging.info("Visualising simulation.")
+            contact_reporter.reset()
             # Visualise system with Irrlicht app
             vis_app = chronoirr.ChIrrApp(
                 self._sys, "Ball Visualisation", chronoirr.dimension2du(1200, 800)
@@ -194,26 +209,34 @@ class Simulation:
             vis_app.SetTryRealtime(True)
             vis_app.SetShowInfos(True)
             vis_app.SetPaused(True)
+
             while vis_app.GetDevice().run():
                 vis_app.DoStep()
                 vis_app.BeginScene()
                 vis_app.DrawAll()
-
-                # Emulate player movement around the back of the court (backwards and forwards).
-                if self._player1.GetPos().z >= -0.5:
-                    self._player1.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
-
-                if self._player1.GetPos().z <= -3.1:
-                    self._player1.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
-
-                if self._player2.GetPos().z >= -0.5:
-                    self._player2.SetPos_dt(chrono.ChVectorD(2, 0, -3))  # Speed
-
-                if self._player2.GetPos().z <= -3:
-                    self._player2.SetPos_dt(chrono.ChVectorD(-2, 0, 3))  # Speed
-
                 vis_app.DoStep()
                 vis_app.EndScene()
+
+                self._sys.GetContactContainer().ReportAllContacts(contact_reporter)
+
+                # Emulate random player movement
+                if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                    self._player1.SetPos_dt(random.choice(random_moves))
+
+                if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                    self._player2.SetPos_dt(random.choice(random_moves))
+
+                if self.get_sim_time() >= duration:
+                    vis_app.SetPaused(True)
+
+        # Save ball pos to file
+        if export:
+            df: pd.DataFrame = pd.DataFrame(
+                {"x": ball_pos[0], "y": ball_pos[1], "z": ball_pos[2]}
+            )
+            df.to_csv(str(self._ball_pos_out_path / f"sim_{self._id}.csv"))
+
+        return ball_pos
 
     def get_sim_time(self) -> float:
         return self._sys.GetChTime()

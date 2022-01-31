@@ -24,11 +24,11 @@ CUBE_TEXTURE_RED_CHRONO.SetTextureFilename("\\assets\\textures\\cubetexture_red.
 
 WOOD_TEXTURE_POVRAY = postprocess.ChPovRayAssetCustom()
 WOOD_TEXTURE_POVRAY.SetCommands(
-    "texture { pigment { DMFDarkOak } finish { diffuse 0.3 } }"
+    "texture { pigment { DMFDarkOak } finish { diffuse 0.1 } }"
 )
 
 GLASS_TEXTURE_POVRAY = postprocess.ChPovRayAssetCustom()
-GLASS_TEXTURE_POVRAY.SetCommands("texture {Glass} finish { diffuse 0.2 }")
+GLASS_TEXTURE_POVRAY.SetCommands("texture {Glass} finish { diffuse 0.1 }")
 
 BALL_TEXTURE_POVRAY = postprocess.ChPovRayAssetCustom()
 BALL_TEXTURE_POVRAY.SetCommands(
