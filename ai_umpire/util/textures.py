@@ -28,7 +28,9 @@ WOOD_TEXTURE_POVRAY.SetCommands(
 )
 
 GLASS_TEXTURE_POVRAY = postprocess.ChPovRayAssetCustom()
-GLASS_TEXTURE_POVRAY.SetCommands("texture {Glass} finish { diffuse 0.1 }")
+GLASS_TEXTURE_POVRAY.SetCommands(
+    "texture {Glass} finish { reflection {0.035} diffuse 0.2 }"
+)
 
 BALL_TEXTURE_POVRAY = postprocess.ChPovRayAssetCustom()
 BALL_TEXTURE_POVRAY.SetCommands(
@@ -74,7 +76,7 @@ ORANGE_TEXTURE_POVRAY.SetCommands(
 
 WALL_DECAL_A_POVRAY = postprocess.ChPovRayAssetCustom()
 WALL_DECAL_A_POVRAY.SetCommands(
-    'pigment { image_map { png "UOS-logo.png" once transmit all 0.7} translate <-0.5, -0.5, 0> scale <-1.3, 1.3, 1> }'
+    'pigment { image_map { png "../UOS-logo.png" once transmit all 0.7} translate <-0.5, -0.5, 0> scale <-1.3, 1.3, 1> }'
 )
 
 WALL_DECAL_B_POVRAY = postprocess.ChPovRayAssetCustom()
