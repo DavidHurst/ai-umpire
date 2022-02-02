@@ -20,7 +20,7 @@ def test_init(localiser_instance) -> None:
     assert localiser_instance is not None
 
 
-@pytest.mark.parametrize("method", ["hough_circle"]) #["log", "dog", "blob_filter", "hough_circle"])
+@pytest.mark.parametrize("method", ["log"]) #["log", "dog", "blob_filter", "hough_circle"])
 def test_get_candidates(localiser_instance, method):
     candidates: np.ndarray = localiser_instance.get_ball_candidates(
         vid_path=VID_PATH,

@@ -28,6 +28,8 @@ def sim_to_pixel_coord(sim_x: float, sim_y: float) -> Tuple[int, int]:
     """
     pixel_x: int = int((51.72 * sim_x) - (20.70 * sim_y) + 168.43)
     pixel_y: int = int((-20.70 * sim_x) - (51.72 * sim_y) + 448.93)
+    # pixel_x: int = int(((-27.1141) * sim_x) - (53.0201 * sim_y) + 270.3765)
+    # pixel_y: int = int((53.0201 * sim_x) - ((-27.1141) * sim_y) + 449.2336)
 
     return pixel_x, pixel_y
 

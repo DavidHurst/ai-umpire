@@ -90,12 +90,12 @@ class Localiser:
                 param1=50,
                 param2=30,
                 minRadius=0,
-                maxRadius=0
+                maxRadius=0,
             )
 
             if circles_detected is not None:
                 for x, y, r in circles_detected[0]:
-                    print(f'Frame #{i}: (x={x},y={y}), rad={r}')
+                    print(f"Frame #{i}: (x={x},y={y}), rad={r}")
             else:
                 print("No detections")
 
@@ -132,9 +132,9 @@ class Localiser:
             if method == "log":
                 blobs: np.ndarray = blob_log(
                     frame,
-                    min_sigma=70,
-                    max_sigma=100,
-                    num_sigma=3,
+                    min_sigma=10,
+                    max_sigma=50,
+                    num_sigma=5,
                     threshold=0.0001,
                 )
             elif method == "dog":
@@ -175,7 +175,9 @@ class Localiser:
             range(frames.shape[0]),
             desc=f"Localising ball (contour)",
         ):
-            contours, hierarchy = cv.findContours(frames[i], cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            contours, hierarchy = cv.findContours(
+                frames[i], cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE
+            )
             if contours:
                 display_im = cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
                 cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
@@ -186,8 +188,6 @@ class Localiser:
                 print("No detections")
 
         return np.array(detections)
-
-
 
     def get_ball_candidates(
         self,
@@ -257,12 +257,12 @@ class Localiser:
             cv.circle(
                 display_img,
                 (
-                    int(detection_phases_frames[-1][i][0]),
                     int(detection_phases_frames[-1][i][1]),
+                    int(detection_phases_frames[-1][i][0]),
                 ),
                 int(detection_phases_frames[-1][i][2]),
                 (0, 0, 255),
-                -1,
+                2,
             )
 
             fig, axs = plt.subplots(2, 3, figsize=(12, 6))

@@ -35,19 +35,19 @@ if __name__ == "__main__":
 
     ball_pos = pd.DataFrame(pd.read_csv(data_file_path), columns=["x", "y", "z"])
 
-    avg_indices: List[int] = [
-        _
-        for _ in range(
-            0, (n_frames_to_avg * desired_fps) + n_frames_to_avg, n_frames_to_avg
-        )
-    ]
-    averaged_positions: List[List] = []
-    for i in range(len(avg_indices) - 1):
-        start = avg_indices[i]
-        end = avg_indices[i + 1] - 1
-        averaged_positions.append(list(ball_pos[start:end].mean(axis=0)))
-
-    averaged_positions_df = pd.DataFrame(averaged_positions, columns=list("xyz"))
+    # avg_indices: List[int] = [
+    #     _
+    #     for _ in range(
+    #         0, (n_frames_to_avg * desired_fps) + n_frames_to_avg, n_frames_to_avg
+    #     )
+    # ]
+    # averaged_positions: List[List] = []
+    # for i in range(len(avg_indices) - 1):
+    #     start = avg_indices[i]
+    #     end = avg_indices[i + 1] - 1
+    #     averaged_positions.append(list(ball_pos[start:end].mean(axis=0)))
+    #
+    # averaged_positions_df = pd.DataFrame(averaged_positions, columns=list("xyz"))
 
     # for i in range(len(averaged_positions_df)):
     #     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -90,11 +90,14 @@ if __name__ == "__main__":
             cv2.COLOR_BGR2RGB,
         )
 
+        ball_sim_x: int = ball_pos["x"][i] / ball_pos["z"][i]
+        ball_sim_y: int = ball_pos["y"][i] / ball_pos["z"][i]
+
+        print(f'Converted coord: {sim_to_pixel_coord(ball_sim_x, ball_sim_y)}')
+
         cv2.circle(
             im2,
-            sim_to_pixel_coord(
-                ball_pos["x"][i], ball_pos["y"][i]
-            ),
+            sim_to_pixel_coord(ball_sim_x, ball_sim_y),
             5,
             (0, 255, 0),
             1,
@@ -103,7 +106,7 @@ if __name__ == "__main__":
         axes[0].imshow(im1)
         axes[1].imshow(im2)
         axes[0].set_title(f"Frame #{i}")
-        axes[1].set_title("Ball True")
+        axes[1].set_title("Frame #{i} Ball Circled")
         for ax in axes:
             ax.axis("off")
         plt.tight_layout()
