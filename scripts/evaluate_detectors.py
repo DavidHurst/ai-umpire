@@ -93,7 +93,7 @@ if __name__ == "__main__":
         ball_sim_x: int = ball_pos["x"][i] / ball_pos["z"][i]
         ball_sim_y: int = ball_pos["y"][i] / ball_pos["z"][i]
 
-        print(f'Converted coord: {sim_to_pixel_coord(ball_sim_x, ball_sim_y)}')
+        print(f"Converted coord: {sim_to_pixel_coord(ball_sim_x, ball_sim_y)}")
 
         cv2.circle(
             im2,
