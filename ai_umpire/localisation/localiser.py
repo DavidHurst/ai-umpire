@@ -9,6 +9,7 @@ import numpy as np
 from typing import List, Tuple
 
 from matplotlib import pyplot as plt
+from scipy.spatial import ConvexHull
 from skimage.feature import blob_log, blob_dog, blob_doh
 
 from tqdm import tqdm
@@ -23,6 +24,12 @@ from ai_umpire.util import (
 
 
 class Localiser:
+    def __init__(self, root_dir: Path):
+        self._root_dir: Path = root_dir
+        self._vid_dir: Path = self._root_dir / "videos"
+        self._blurred_dir: Path = self._root_dir / "blurred_frames"
+        self._frames_dir: Path = self._root_dir / "sim_frames"
+
     def _localise_ball_blob_filter(self, frames: np.ndarray) -> np.ndarray:
         detections: List[List] = []
 
@@ -57,8 +64,8 @@ class Localiser:
         detector = cv.SimpleBlobDetector_create(params)
 
         for i in tqdm(
-            range(frames.shape[0]),
-            desc="Localising ball (blob filter)",
+                range(frames.shape[0]),
+                desc="Localising ball (blob filter)",
         ):
             # Detect blobs
             keypoints = detector.detect(frames[i])
@@ -77,8 +84,8 @@ class Localiser:
     def _localise_ball_hough_circle(self, frames: np.ndarray) -> np.ndarray:
         detections: List[List] = []
         for i in tqdm(
-            range(frames.shape[0]),
-            desc="Localising ball (Hough circle)",
+                range(frames.shape[0]),
+                desc="Localising ball (Hough circle)",
         ):
             # Detect circles
             max_radius: int = int(frames[i].shape[1] * 0.4)
@@ -113,8 +120,8 @@ class Localiser:
     def _localise_ball_blob(self, frames: np.ndarray, method: str) -> np.ndarray:
         detections: List[List] = []
         for i in tqdm(
-            range(frames.shape[0]),
-            desc=f"Localising ball ({method})",
+                range(frames.shape[0]),
+                desc=f"Localising ball ({method})",
         ):
             method_types: List[str] = ["log", "dog", "doh"]
             if method not in method_types:
@@ -169,40 +176,85 @@ class Localiser:
 
         return np.array(detections)
 
-    def _localise_ball_contour(self, frames: np.ndarray) -> np.ndarray:
+    def get_ball_candidates_contour(
+            self,
+            sim_id: int,
+            morph_op: str,
+            morph_op_iters: int,
+            morph_op_SE_shape: Tuple[int, int],
+            blur_kernel_size: Tuple[int, int],
+            blur_sigma_x: int,
+            binary_thresh_low: int,
+    ) -> List[List]:
         detections: List[List] = []
+        # Extract frames from video
+        vid_path: Path = self._vid_dir / f"sim_{sim_id}.mp4"
+        video_frames: np.ndarray = extract_frames_from_vid(vid_path)
+
+        # Preprocess frames
+        fg_seg_frames: np.ndarray = difference_frames(video_frames)
+        blurred_frames: np.ndarray = blur_frames(
+            fg_seg_frames, blur_kernel_size, blur_sigma_x
+        )
+        binary_frames: np.ndarray = binarize_frames(blurred_frames, binary_thresh_low)
+        morph_op_frames: np.ndarray = apply_morph_op(
+            binary_frames, morph_op, morph_op_iters, morph_op_SE_shape
+        )
+
         for i in tqdm(
-            range(frames.shape[0]),
-            desc=f"Localising ball (contour)",
+                range(morph_op_frames.shape[0]),
+                desc=f"Localising ball (contour)",
         ):
+            # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
             contours, hierarchy = cv.findContours(
-                frames[i], cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE
+                morph_op_frames[i], cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE
             )
             if contours:
-                print(f"Detection in frame #{i}")
-                display_im = cv.imread(
-                    f"C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_5_blurred\\frame{str(i).zfill(5)}.png"
-                )  # cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
-                cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
-                plt.imshow(display_im)
-                plt.tight_layout()
-                plt.savefig(f"detection{i}.png")
+                estimated_pos = []
+                for c in contours:
+                    # Compute contour centroid
+                    M = cv.moments(c)
+                    contour_centroid_x = int(M['m10'] / M['m00'])
+                    contour_centroid_y = int(M['m01'] / M['m00'])
+
+                    # Compute area of contour
+                    contour_area = cv.contourArea(c)
+
+                    estimated_pos.append((contour_centroid_x, contour_centroid_y, contour_area))
+
+                detections.append(estimated_pos)
+
+                # display_im = cv.imread(
+                #     str(
+                #         self._blurred_dir
+                #         / f"sim_{sim_id}_blurred"
+                #         / f"frame{str(i).zfill(5)}.png"
+                #     )
+                # )
+                # cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
+                # axes[0].imshow(binary_frames[i], cmap="gray", vmin=0, vmax=255)
+                # axes[1].imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
+                # axes[2].imshow(cv.cvtColor(display_im, cv.COLOR_BGR2RGB))
+                # for ax in axes:
+                #     ax.axis('off')
+                # plt.tight_layout()
+                # # plt.savefig(f"detection{str(i).zfill(2)}.png")
                 # plt.show()
             else:
-                print(f"No detections frame #{i}")
+                print(f"\nNo detections frame #{i}")
 
-        return np.array(detections)
+        return detections
 
     def get_ball_candidates(
-        self,
-        vid_path: Path,
-        morph_op: str,
-        detection_method: str,
-        morph_op_iters: int,
-        morph_op_SE_shape: Tuple[int, int],
-        blur_kernel_size: Tuple[int, int],
-        blur_sigma_x: int,
-        binary_thresh_low: int,
+            self,
+            vid_path: Path,
+            morph_op: str,
+            detection_method: str,
+            morph_op_iters: int,
+            morph_op_SE_shape: Tuple[int, int],
+            blur_kernel_size: Tuple[int, int],
+            blur_sigma_x: int,
+            binary_thresh_low: int,
     ) -> np.ndarray:
         # Extract frames from video
         video_frames: np.ndarray = extract_frames_from_vid(vid_path)
@@ -250,7 +302,7 @@ class Localiser:
         return detections
 
     def _display_detections(
-        self, detection_phases_frames: List[np.ndarray], morph_op: str, det_method: str
+            self, detection_phases_frames: List[np.ndarray], morph_op: str, det_method: str
     ):
         # Draw detections
         for i in range(detection_phases_frames[0].shape[0]):

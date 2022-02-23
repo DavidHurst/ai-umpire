@@ -36,9 +36,7 @@ def wc_to_ic(
     homog_ball_wc: np.ndarray = np.reshape(
         np.array([pos_x_wc, pos_y_wc, pos_z_wc, 1]), (1, 4)
     )
-    homog_tformed_ball_wc: np.ndarray = np.dot(
-        homog_ball_wc, HOMOG_CAM_TFORM_MAT_INV
-    )
+    homog_tformed_ball_wc: np.ndarray = np.dot(homog_ball_wc, HOMOG_CAM_TFORM_MAT_INV)
     tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[:, :-1]
     pos_ic_coefs: np.ndarray = np.array(
         [
