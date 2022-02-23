@@ -179,13 +179,15 @@ class Localiser:
                 frames[i], cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE
             )
             if contours:
-                display_im = cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
+                print(f"Detection in frame #{i}")
+                display_im = cv.imread(f"C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_5_blurred\\frame{str(i).zfill(5)}.png")# cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
                 cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
                 plt.imshow(display_im)
                 plt.tight_layout()
-                plt.show()
+                plt.savefig(f"detection{i}.png")
+                # plt.show()
             else:
-                print("No detections")
+                print(f"No detections frame #{i}")
 
         return np.array(detections)
 
@@ -229,18 +231,18 @@ class Localiser:
             logging.exception(e)
             raise e
 
-        self._display_detections(
-            [
-                video_frames,
-                fg_seg_frames,
-                blurred_frames,
-                binary_frames,
-                morph_op_frames,
-                detections,
-            ],
-            morph_op,
-            detection_method,
-        )
+        # self._display_detections(
+        #     [
+        #         video_frames,
+        #         fg_seg_frames,
+        #         blurred_frames,
+        #         binary_frames,
+        #         morph_op_frames,
+        #         detections,
+        #     ],
+        #     morph_op,
+        #     detection_method,
+        # )
 
         # Return frame detections
         return detections
@@ -297,5 +299,5 @@ class Localiser:
             axs[1, 1].axis("off")
             axs[1, 2].axis("off")
             plt.tight_layout()
-            fig.savefig(f"detection{i}.png")
-            # plt.show()
+            # fig.savefig(f"detection{i}.png")
+            plt.show()

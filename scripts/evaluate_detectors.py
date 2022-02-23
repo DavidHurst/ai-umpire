@@ -3,6 +3,7 @@ from typing import Tuple, List
 
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from ai_umpire import SimVideoGen, Localiser
 from ai_umpire.util import sim_to_pixel_coord
@@ -19,7 +20,15 @@ sim_step_sz = 0.005
 n_rendered_frames = int(sim_length / sim_step_sz)
 desired_fps = 50
 n_frames_to_avg = int(n_rendered_frames / desired_fps)
-
+img_dims = np.reshape(np.array([1024, 768]), (2, 1))
+cam_transform_mat_homog = np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.75, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 3.0, -13.0, 1.0],
+        ]
+    )
 
 if __name__ == "__main__":
     # Generate video from simulation frames if it does not already exist
@@ -35,69 +44,47 @@ if __name__ == "__main__":
 
     ball_pos = pd.DataFrame(pd.read_csv(data_file_path), columns=["x", "y", "z"])
 
-    # avg_indices: List[int] = [
-    #     _
-    #     for _ in range(
-    #         0, (n_frames_to_avg * desired_fps) + n_frames_to_avg, n_frames_to_avg
-    #     )
-    # ]
-    # averaged_positions: List[List] = []
-    # for i in range(len(avg_indices) - 1):
-    #     start = avg_indices[i]
-    #     end = avg_indices[i + 1] - 1
-    #     averaged_positions.append(list(ball_pos[start:end].mean(axis=0)))
-    #
-    # averaged_positions_df = pd.DataFrame(averaged_positions, columns=list("xyz"))
-
-    # for i in range(len(averaged_positions_df)):
-    #     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    #     im1 = cv2.imread(
-    #         str(sim_blurred_frames_path / f"frame{str(i).zfill(5)}.png"),
-    #         cv2.COLOR_BGR2RGB,
-    #     )
-    #     im2 = cv2.imread(
-    #         str(sim_blurred_frames_path / f"frame{str(i).zfill(5)}.png"),
-    #         cv2.COLOR_BGR2RGB,
-    #     )
-    #
-    #     cv2.circle(
-    #         im2,
-    #         sim_to_pixel_coord(
-    #             averaged_positions_df["x"][i], averaged_positions_df["y"][i]
-    #         ),
-    #         4,
-    #         (0, 255, 0),
-    #         1,
-    #     )
-    #
-    #     axes[0].imshow(im1)
-    #     axes[1].imshow(im2)
-    #     axes[0].set_title("Frame")
-    #     axes[1].set_title("Ball True")
-    #     for ax in axes:
-    #         ax.axis("off")
-    #     plt.tight_layout()
-    #     plt.show()
+    print(f"Homogenous transform mat: \n{cam_transform_mat_homog}")
 
     for i in range(len(ball_pos)):
         fig, axes = plt.subplots(1, 2, figsize=(15, 7))
         im1 = cv2.imread(
-            str(sim_frames_path / f"picture{str(i).zfill(3)}.png"),
-            cv2.COLOR_BGR2RGB,
+            str(root_dir_path / f"test_frames/picture{str(i).zfill(3)}.png"),
+            1,
         )
         im2 = cv2.imread(
-            str(sim_frames_path / f"picture{str(i).zfill(3)}.png"),
-            cv2.COLOR_BGR2RGB,
+            str(root_dir_path / f"test_frames/picture{str(i).zfill(3)}.png"),
+            1,
         )
 
-        ball_sim_x: int = ball_pos["x"][i] / ball_pos["z"][i]
-        ball_sim_y: int = ball_pos["y"][i] / ball_pos["z"][i]
+        ball_wc_homog = np.reshape(
+            np.array([ball_pos["x"][i], ball_pos["y"][i], ball_pos["z"][i], 1]), (1, 4)
+        )
+        transformed_ball_wc_homog = np.dot(
+            ball_wc_homog, np.linalg.inv(cam_transform_mat_homog)
+        )
+        transformed_ball_wc = transformed_ball_wc_homog[:, :-1]
+        ball_ic_coefs = (
+            np.array(
+                [
+                    0.5 + (transformed_ball_wc[:, 0] / transformed_ball_wc[:, -1]),
+                    0.5 - (transformed_ball_wc[:, 1] / transformed_ball_wc[:, -1]),
+                ]
+            )
+        )
+        ball_ic = np.multiply(img_dims, ball_ic_coefs)
 
-        print(f"Converted coord: {sim_to_pixel_coord(ball_sim_x, ball_sim_y)}")
+        print(f'Frame #{i}{"-" * 15}')
+        print(f'Ball WC homogenous: {ball_wc_homog}')
+        print(f'TFormed ball WC homogenous: {transformed_ball_wc_homog}')
+        print(f'TFormed ball WC: {transformed_ball_wc}')
+        print(f'Ball IC coefs:\n{ball_ic_coefs}')
+        print(f'Ball IC:\n{ball_ic}')
+
 
         cv2.circle(
             im2,
-            sim_to_pixel_coord(ball_sim_x, ball_sim_y),
+            (int(ball_ic[0]), int(ball_ic[1])),
             5,
             (0, 255, 0),
             1,
@@ -106,7 +93,7 @@ if __name__ == "__main__":
         axes[0].imshow(im1)
         axes[1].imshow(im2)
         axes[0].set_title(f"Frame #{i}")
-        axes[1].set_title("Frame #{i} Ball Circled")
+        axes[1].set_title(f"Frame #{i} Ball Circled")
         for ax in axes:
             ax.axis("off")
         plt.tight_layout()

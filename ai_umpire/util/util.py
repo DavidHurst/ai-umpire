@@ -15,17 +15,12 @@ __all__ = [
     "blur_frames",
     "binarize_frames",
     "apply_morph_op",
-    "sim_to_pixel_coord",
+    "wc_to_ic",
 ]
 
 
-def sim_to_pixel_coord(sim_x: float, sim_y: float) -> Tuple[int, int]:
-    """Apply affine transformation to simulation coordinate to obtain corresponding pixel coordinate.
-    Affine transform (assumes 480p image size) =
-        x_pix = a*x_sim + b*y_sim + c
-        y_pix = b*x_sim - a*y_sim + c
-    a, b, c and d are precomputed.
-    """
+def wc_to_ic(sim_x: float, sim_y: float, sim_z: float) -> Tuple[int, int]:
+
     pixel_x: int = int((51.72 * sim_x) - (20.70 * sim_y) + 168.43)
     pixel_y: int = int((-20.70 * sim_x) - (51.72 * sim_y) + 448.93)
     # pixel_x: int = int(((-27.1141) * sim_x) - (53.0201 * sim_y) + 270.3765)

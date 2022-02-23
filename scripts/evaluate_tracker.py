@@ -118,20 +118,42 @@ if __name__ == "__main__":
     measurements_example = np.array([np.array([[x[i]], [y[i]]]) for i in range(len(x))])
     ball_true = np.array([[[ball_x[i]], [ball_y[i]]] for i in range(len(ball_x))])
 
-    noise = 0 + 0.005 * np.random.randn(ball_true.shape[0], ball_true.shape[1], ball_true.shape[2])
+    noise = 0 + 0.02 * np.random.randn(
+        ball_true.shape[0], ball_true.shape[1], ball_true.shape[2]
+    )
     measurements_ball = ball_true + noise
 
     preds = kf.process_measurements(measurements_ball)
 
-    fig, axes = plt.subplots(1, figsize=(10, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(17.5, 5), sharey="all", sharex="all")
     # axes.plot(x, y, '--g', label="Measurements")
     # axes.plot([pos[0] for pos in preds], [pos[1] for pos in preds], '-+b', label='Estimate')
-    axes.plot(ball_x, ball_y, '-g', label="True")
-    # axes.plot([p[0] for p in measurements_ball], [p[1] for p in measurements_ball], '-sb', label="Measurement")
-    axes.plot([pos[0] for pos in preds], [pos[1] for pos in preds], '->r', label='Estimate')
-    axes.set_ylabel("y")
-    axes.set_xlabel("x")
+    axes[0].plot(ball_x, ball_y, "-g", label="True")
+    axes[0].set_title("True Position")
 
-    plt.legend()
+    axes[1].plot(
+        [p[0] for p in measurements_ball],
+        [p[1] for p in measurements_ball],
+        "-b",
+        label="Measurement",
+    )
+    axes[1].set_title("Noisy Measurement (True + N(0, 0.02)")
+
+    axes[2].plot(
+        [pos[0] for pos in preds],
+        [pos[1] for pos in preds],
+        "-r",
+        label="Estimate",
+    )
+    axes[2].set_title("Estimated Position")
+
+    for i in range(0, len(ball_x), 20):
+        axes[0].annotate(i, (ball_x[i], ball_y[i]))
+
+    for ax in axes:
+        ax.legend()
+        ax.set_ylabel("y")
+        ax.set_xlabel("x")
+
     plt.tight_layout()
     plt.show()
