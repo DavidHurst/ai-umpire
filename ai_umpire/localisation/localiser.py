@@ -180,7 +180,9 @@ class Localiser:
             )
             if contours:
                 print(f"Detection in frame #{i}")
-                display_im = cv.imread(f"C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_5_blurred\\frame{str(i).zfill(5)}.png")# cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
+                display_im = cv.imread(
+                    f"C:\\Users\\david\\Data\\AI Umpire DS\\blurred_frames\\sim_5_blurred\\frame{str(i).zfill(5)}.png"
+                )  # cv.cvtColor(np.zeros_like(frames[i]), cv.COLOR_GRAY2RGB)
                 cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
                 plt.imshow(display_im)
                 plt.tight_layout()
