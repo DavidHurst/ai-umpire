@@ -24,7 +24,7 @@ def test_init(localiser_instance) -> None:
 def test_get_candidates(localiser_instance, method):
     candidates: np.ndarray = localiser_instance.get_ball_candidates(
         vid_path=VID_PATH,
-        morph_op="close",
+        morph_op="open",
         detection_method=method,
         morph_op_iters=2,
         morph_op_SE_shape=(15, 15),

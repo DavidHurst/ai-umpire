@@ -251,9 +251,9 @@ class Localiser:
         # Draw detections
         for i in range(detection_phases_frames[0].shape[0]):
             display_img: np.ndarray = detection_phases_frames[0][i].copy()
-            print(
-                f"Frame #{i} = ({detection_phases_frames[-1][i][0]}, {detection_phases_frames[-1][i][1]}), radius={detection_phases_frames[-1][i][2]}"
-            )
+            # print(
+            #     f"Frame #{i} = ({detection_phases_frames[-1][i][0]}, {detection_phases_frames[-1][i][1]}), radius={detection_phases_frames[-1][i][2]}"
+            # )
             cv.circle(
                 display_img,
                 (
@@ -297,4 +297,5 @@ class Localiser:
             axs[1, 1].axis("off")
             axs[1, 2].axis("off")
             plt.tight_layout()
-            plt.show()
+            fig.savefig(f"detection{i}.png")
+            # plt.show()
