@@ -1,3 +1,1 @@
-from . import sim
-
-__all__ = ["sim"]
+from .sim import *

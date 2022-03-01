@@ -1,7 +1,7 @@
 import pychrono as chrono
 
-from ai_umpire.simulation.sim_consts import *
-from ai_umpire.simulation.textures import *
+from ai_umpire.util.sim_consts import *
+from ai_umpire.util.textures import *
 
 __all__ = [
     "FLOOR",
@@ -84,7 +84,7 @@ BACK_WALL.SetBodyFixed(True)
 
 
 FRONT_WALL_OUT_LINE: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-    COURT_WIDTH, LINE_MARKING_WIDTH, PAINT_THICKNESS, 1, True, True, WALL_MAT
+    COURT_WIDTH, LINE_MARKING_WIDTH, PAINT_THICKNESS, 1, True, False, WALL_MAT
 )
 FRONT_WALL_OUT_LINE.SetName("Front Wall Out-Line")
 FRONT_WALL_OUT_LINE.SetPos(
@@ -98,7 +98,7 @@ FRONT_WALL_OUT_LINE.SetBodyFixed(True)
 
 
 LEFT_WALL_OUT_LINE = chrono.ChBodyEasyBox(
-    PAINT_THICKNESS, LINE_MARKING_WIDTH, 10.051, 1000, True, True, WALL_MAT
+    PAINT_THICKNESS, LINE_MARKING_WIDTH, 10.051, 1000, True, False, WALL_MAT
 )
 LEFT_WALL_OUT_LINE.SetName("Left Wall Out-Line")
 LEFT_WALL_OUT_LINE.SetPos(
@@ -113,7 +113,7 @@ LEFT_WALL_OUT_LINE.SetBodyFixed(True)
 
 
 RIGHT_WALL_OUT_LINE = chrono.ChBodyEasyBox(
-    PAINT_THICKNESS, LINE_MARKING_WIDTH, 10.051, 1000, True, True, WALL_MAT
+    PAINT_THICKNESS, LINE_MARKING_WIDTH, 10.051, 1000, True, False, WALL_MAT
 )
 RIGHT_WALL_OUT_LINE.SetName("Right Wall Out-Line")
 RIGHT_WALL_OUT_LINE.SetPos(
@@ -128,7 +128,7 @@ RIGHT_WALL_OUT_LINE.SetBodyFixed(True)
 
 
 SERVICE_LINE: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-    COURT_WIDTH, LINE_MARKING_WIDTH, PAINT_THICKNESS, 1, True, True, WALL_MAT
+    COURT_WIDTH, LINE_MARKING_WIDTH, PAINT_THICKNESS, 1, True, False, WALL_MAT
 )
 SERVICE_LINE.SetName("Service Line")
 SERVICE_LINE.SetPos(
@@ -142,7 +142,7 @@ SERVICE_LINE.SetBodyFixed(True)
 
 
 HALF_COURT_LINE: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-    LINE_MARKING_WIDTH, PAINT_THICKNESS, 4.26, 1, True, True, WALL_MAT
+    LINE_MARKING_WIDTH, PAINT_THICKNESS, 4.26, 1, True, False, WALL_MAT
 )
 HALF_COURT_LINE.SetName("Half-Court Line")
 HALF_COURT_LINE.SetPos(
@@ -156,7 +156,7 @@ HALF_COURT_LINE.SetBodyFixed(True)
 
 
 SHORT_LINE: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
-    COURT_WIDTH, PAINT_THICKNESS, LINE_MARKING_WIDTH, 1, True, True, WALL_MAT
+    COURT_WIDTH, PAINT_THICKNESS, LINE_MARKING_WIDTH, 1, True, False, WALL_MAT
 )
 SHORT_LINE.SetName("Short Line")
 SHORT_LINE.SetPos(
@@ -176,7 +176,7 @@ LSB_VERTICAL: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
     1.6 + LINE_MARKING_WIDTH,
     1,
     True,
-    True,
+    False,
     WALL_MAT,
 )
 LSB_VERTICAL.SetName("Left Service-Box Vertical")
@@ -197,7 +197,7 @@ LSB_HORIZONTAL: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
     LINE_MARKING_WIDTH,
     1,
     True,
-    True,
+    False,
     WALL_MAT,
 )
 LSB_HORIZONTAL.SetName("Left Service-Box Horizontal")
@@ -218,7 +218,7 @@ RSB_HORIZONTAL: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
     LINE_MARKING_WIDTH,
     1,
     True,
-    True,
+    False,
     WALL_MAT,
 )
 RSB_HORIZONTAL.SetName("Right Service-Box Horizontal")
@@ -239,7 +239,7 @@ RSB_VERTICAL: chrono.ChBodyEasyBox = chrono.ChBodyEasyBox(
     1.6 + LINE_MARKING_WIDTH,
     1,
     True,
-    True,
+    False,
     WALL_MAT,
 )
 RSB_VERTICAL.SetName("Right Service-Box Vertical")
