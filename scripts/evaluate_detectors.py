@@ -1,9 +1,8 @@
+import json
 import math
-import statistics
 from pathlib import Path
-from typing import Tuple, List
+from typing import Tuple
 
-import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -22,6 +21,112 @@ sim_step_sz = 0.005
 n_rendered_frames = int(sim_length / sim_step_sz)
 desired_fps = 50
 n_frames_to_avg = int(n_rendered_frames / desired_fps)
+img_dims = [1024, 768]
+
+
+def eval_contour_detector(
+    n_trails: int,
+    opening_iters: int,
+    morph_op_SE_shape: Tuple,
+    blur_kernel_size: Tuple,
+    blur_strength: int,
+    binarize_thresh_low: int,
+    visualise: bool = False,
+) -> Tuple:
+    # Generate ball candidates per frame in video
+    loc = Localiser(root_dir_path)
+    frame_detections = loc.get_ball_candidates_contour(
+        sim_id=sim_id,
+        morph_op="open",
+        morph_op_iters=opening_iters,
+        morph_op_SE_shape=morph_op_SE_shape,
+        blur_kernel_size=blur_kernel_size,
+        blur_sigma_x=blur_strength,
+        binary_thresh_low=binarize_thresh_low,
+    )
+
+    # Measure performance of detector, metric is Euclidean distance for x and y,
+    # correlation between z surrogate and true z for z
+    avg_euclid_dists = []
+    min_euclid_dists = []
+    max_euclid_dists = []
+
+    z_surrogate_closest_dets = []
+    for i in range(len(frame_detections)):
+        # Calculate Euclidean distances from true pos to detected positions
+        ball_x_ic, ball_y_ic = wc_to_ic(
+            ball_pos_blurred_WC["x"][i],
+            ball_pos_blurred_WC["y"][i],
+            ball_pos_blurred_WC["z"][i],
+            img_dims,
+        )
+        euclid_dists = [
+            math.sqrt(((det_x - ball_x_ic) ** 2) + ((det_y - ball_y_ic) ** 2))
+            for (det_x, det_y, _) in frame_detections[i]
+        ]
+
+        avg_euclid_dists.append(sum(euclid_dists) / len(euclid_dists))
+        min_euclid_dists.append(min(euclid_dists))
+        max_euclid_dists.append(max(euclid_dists))
+
+        frame_z_estimates = [z_estim for (_, _, z_estim) in frame_detections[i]]
+        closest_det_idx = euclid_dists.index(min(euclid_dists))
+
+        z_surrogate_closest_dets.append(frame_z_estimates[closest_det_idx])
+
+    mean_mean_dist = sum(avg_euclid_dists) / len(avg_euclid_dists)
+    mean_min_dist = sum(min_euclid_dists) / len(min_euclid_dists)
+
+    # Compute correlation, evaluation of z estimate
+    closest_dets_corr = (
+        pd.DataFrame(
+            {
+                "z": ball_pos_blurred_WC["z"].to_numpy()[:-1],
+                "Best Detection": z_surrogate_closest_dets,
+            }
+        )
+        .corr()
+        .iloc[0]["Best Detection"]
+    )
+
+    if visualise:
+        # Plot performance
+        fig, axes = plt.subplots(1, 2, figsize=(15, 7))
+        frame_nums = np.arange(0, len(frame_detections))
+        axes[0].plot(frame_nums, avg_euclid_dists, "b-", label="Mean")
+        axes[0].fill_between(
+            frame_nums,
+            min_euclid_dists,
+            max_euclid_dists,
+            label="Range",
+            color="blue",
+            alpha=0.2,
+            edgecolor="green",
+        )
+
+        axes[0].set_title("Detection Error - (x, y)")
+        axes[0].set_xlabel("Frame")
+        axes[0].set_ylabel("Euclidean Distance Between True & Det. (Pixels)")
+
+        axes[1].scatter(
+            ball_pos_blurred_WC["z"].to_numpy()[:-1],
+            z_surrogate_closest_dets,
+            marker="x",
+            color="green",
+            label=f"z vs. Closest Detection - Corr.={closest_dets_corr:.2f}",
+            alpha=0.5,
+        )
+        axes[1].set_title("Detection Error - z (True z vs. Contour Area (Sqrt.))")
+        axes[1].set_xlabel("z")
+        axes[1].set_ylabel("Contour Area")
+
+        fig.suptitle("Contour Detection Performance")
+        for ax in axes:
+            ax.legend()
+        plt.show()
+
+    return mean_mean_dist, mean_min_dist, closest_dets_corr
+
 
 if __name__ == "__main__":
     # Generate video from simulation frames if it does not already exist
@@ -71,98 +176,124 @@ if __name__ == "__main__":
     #     # plt.savefig(f"ball_true_{i}.png")
     #     plt.show()
 
-    # Generate ball candidates per frame in video
-    loc = Localiser(root_dir_path)
-    frame_detections = loc.get_ball_candidates_contour(
-        sim_id=sim_id,
-        morph_op="open",
-        morph_op_iters=1,
-        morph_op_SE_shape=(5, 5),
-        blur_kernel_size=(51, 51),
-        blur_sigma_x=2,
-        binary_thresh_low=235,
-    )
+    # Perform grid search of hyperparameters:
+    opening_iters_set_set = [1, 2, 3]
+    morph_op_SE_shape_set = [(2, 2), (5, 5), (8, 8)]
+    blur_kernel_size_set = [(21, 21), (41, 41), (61, 61)]
+    blur_strength_set = [1, 2, 3]
+    binarize_thresh_low_set = [200, 230, 250]
 
-    # Measure performance of detector, metric is Euclidean distance for x and y
-    avg_euclid_dists = []
-    min_euclid_dists = []
-    max_euclid_dists = []
-
-    min_z_estimate = []
-    closest_det_z_estimate = []
-    for i in range(len(frame_detections)):
-        # Calculate Euclidean distances from true pos to detected positions
-        ball_x_ic, ball_y_ic = wc_to_ic(
-            ball_pos_blurred_WC["x"][i],
-            ball_pos_blurred_WC["y"][i],
-            ball_pos_blurred_WC["z"][i],
-            [1024, 768],
-        )
-        euclid_dists = [
-            math.sqrt(((det_x - ball_x_ic) ** 2) + ((det_y - ball_y_ic) ** 2))
-            for (det_x, det_y, _) in frame_detections[i]
+    n_configs = np.prod(
+        [
+            len(opening_iters_set_set),
+            len(morph_op_SE_shape_set),
+            len(blur_kernel_size_set),
+            len(blur_strength_set),
+            len(binarize_thresh_low_set),
         ]
-
-        avg_euclid_dists.append(sum(euclid_dists) / len(euclid_dists))
-        min_euclid_dists.append(min(euclid_dists))
-        max_euclid_dists.append(max(euclid_dists))
-
-        frame_z_estimates = [z_est for (_, _, z_est) in frame_detections[i]]
-        closest_det_idx = euclid_dists.index(min(euclid_dists))
-
-        min_z_estimate.append(min(frame_z_estimates))
-        closest_det_z_estimate.append(frame_z_estimates[closest_det_idx])
-
-    # Plot performance
-    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
-    frame_nums = np.arange(0, len(frame_detections))
-    axes[0].plot(frame_nums, avg_euclid_dists, "b-", label="Mean")
-    axes[0].fill_between(
-        frame_nums,
-        min_euclid_dists,
-        max_euclid_dists,
-        label="Range",
-        color="blue",
-        alpha=0.2,
-        edgecolor="green",
     )
 
-    axes[0].set_title("Detection Error - (x, y)")
-    axes[0].set_xlabel("Frame")
-    axes[0].set_ylabel("Euclidean Distance Between True & Det. (Pixels)")
+    hparam_config = 1
+    optimal_model_params = {
+        "opening_iters": 0,
+        "morph_op_SE_shape": (),
+        "blur_kernel_size": (),
+        "blur_strength": 0,
+        "binarize_thresh_low": 0,
+    }
+    optimal_model_scores = {
+        "mean_mean_dist": float("inf"),
+        "mean_min_dist": float("inf"),
+        "closest_dets_corr": float("-inf"),
+    }
+    objective_scaling_values = np.array([0.1, 1, 100])
+    objective_weights = np.array([1, 0.5, 0.8])
 
-    # Compute correlation
-    z_df = pd.DataFrame(
-        {
-            "z": ball_pos_blurred_WC["z"].to_numpy()[:-1],
-            "Area Min": min_z_estimate,
-            "Best Detection": closest_det_z_estimate,
-        }
-    )
-    area_min_corr = z_df.corr().iloc[0]["Area Min"]
-    best_det_corr = z_df.corr().iloc[0]["Best Detection"]
+    # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
+    scalarised_objective = float("-inf")
+    for open_iters in opening_iters_set_set:
+        for SE_shape in morph_op_SE_shape_set:
+            for kernel_sz in blur_kernel_size_set:
+                for blur_strength in blur_strength_set:
+                    for thresh in binarize_thresh_low_set:
+                        param_vals = f"SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, blur_strength:{blur_strength}, thresh:{thresh}"
+                        print(
+                            f"Trial configuration #{hparam_config}/{n_configs}".ljust(80, "-"),
+                            f"\nParams = {param_vals}"
+                        )
 
-    axes[1].scatter(
-        ball_pos_blurred_WC["z"].to_numpy()[:-1],
-        min_z_estimate,
-        marker="x",
-        color="red",
-        label=f"z vs. Contour w/ Min Area - Corr.={area_min_corr:.2f}",
-        alpha=0.5,
-    )
-    axes[1].scatter(
-        ball_pos_blurred_WC["z"].to_numpy()[:-1],
-        closest_det_z_estimate,
-        marker="x",
-        color="green",
-        label=f"z vs. Closest Detection - Corr.={best_det_corr:.2f}",
-        alpha=0.5,
-    )
-    axes[1].set_title("Detection Error - z (True z vs. Contour Area)")
-    axes[1].set_xlabel("z")
-    axes[1].set_ylabel("Contour Area")
+                        # Run and score detector
+                        mean_dist, min_dist, z_corr = eval_contour_detector(
+                            n_trails=1,
+                            opening_iters=open_iters,
+                            morph_op_SE_shape=SE_shape,
+                            blur_kernel_size=kernel_sz,
+                            blur_strength=blur_strength,
+                            binarize_thresh_low=thresh,
+                            visualise=False,
+                        )
 
-    fig.suptitle("Contour Detection Performance")
-    for ax in axes:
-        ax.legend()
-    plt.show()
+                        curr_scalarised_objectives = np.sum(
+                            np.array([-mean_dist, -min_dist, abs(z_corr)])
+                            * objective_scaling_values
+                            * objective_weights
+                        )
+                        print(
+                            "Metrics".ljust(25, " "),
+                            np.array([-mean_dist, -min_dist, abs(z_corr)]),
+                        )
+                        print(
+                            "Metrics (Processed)".ljust(25, " "),
+                            np.array([-mean_dist, -min_dist, abs(z_corr)]),
+                        )
+                        print(
+                            "Metrics Scaled".ljust(25, " "),
+                            np.array([-mean_dist, -min_dist, abs(z_corr)])
+                            * objective_scaling_values,
+                        )
+                        print(
+                            "Metrics Scaled + Weighted".ljust(25, " "),
+                            np.array([-mean_dist, -min_dist, abs(z_corr)])
+                            * objective_scaling_values
+                            * objective_weights,
+                        )
+                        print(
+                            f"Scalarized objective: "
+                            f"\n   Current: {curr_scalarised_objectives:.4f}"
+                            f"\n   Best:    {scalarised_objective:.4f}"
+                        )
+
+                        if curr_scalarised_objectives > scalarised_objective:
+                            print(f"[i] New best configuration found.")
+                            optimal_model_params = {
+                                "opening_iters": open_iters,
+                                "morph_op_SE_shape": SE_shape,
+                                "blur_kernel_size": kernel_sz,
+                                "blur_strength": blur_strength,
+                                "binarize_thresh_low": thresh,
+                            }
+                            optimal_model_scores = {
+                                "mean_mean_dist": float("inf"),
+                                "mean_min_dist": float("inf"),
+                                "closest_dets_corr": float("-inf"),
+                            }
+                            scalarised_objective = curr_scalarised_objectives
+
+                        hparam_config += 1
+                        print('-' * 80, "\n")
+
+    print("Optimal hyperparameter values found by grid search:\n", optimal_model_params)
+    print("Optimal model performance:\n", optimal_model_scores)
+    out_file = open("optimal_model_params.json", "w")
+    json.dump(optimal_model_params, out_file)
+    out_file.close()
+
+    _, _, _ = eval_contour_detector(
+        n_trails=1,
+        opening_iters=optimal_model_params["opening_iters"],
+        morph_op_SE_shape=optimal_model_params["morph_op_SE_shape"],
+        blur_kernel_size=optimal_model_params["blur_kernel_size"],
+        blur_strength=optimal_model_params["blur_strength"],
+        binarize_thresh_low=optimal_model_params["binarize_thresh_low"],
+        visualise=True,
+    )

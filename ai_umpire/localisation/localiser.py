@@ -1,6 +1,7 @@
 __all__ = ["Localiser"]
 
 import logging
+import math
 from math import sqrt
 from pathlib import Path
 
@@ -64,8 +65,8 @@ class Localiser:
         detector = cv.SimpleBlobDetector_create(params)
 
         for i in tqdm(
-                range(frames.shape[0]),
-                desc="Localising ball (blob filter)",
+            range(frames.shape[0]),
+            desc="Localising ball (blob filter)",
         ):
             # Detect blobs
             keypoints = detector.detect(frames[i])
@@ -84,8 +85,8 @@ class Localiser:
     def _localise_ball_hough_circle(self, frames: np.ndarray) -> np.ndarray:
         detections: List[List] = []
         for i in tqdm(
-                range(frames.shape[0]),
-                desc="Localising ball (Hough circle)",
+            range(frames.shape[0]),
+            desc="Localising ball (Hough circle)",
         ):
             # Detect circles
             max_radius: int = int(frames[i].shape[1] * 0.4)
@@ -120,8 +121,8 @@ class Localiser:
     def _localise_ball_blob(self, frames: np.ndarray, method: str) -> np.ndarray:
         detections: List[List] = []
         for i in tqdm(
-                range(frames.shape[0]),
-                desc=f"Localising ball ({method})",
+            range(frames.shape[0]),
+            desc=f"Localising ball ({method})",
         ):
             method_types: List[str] = ["log", "dog", "doh"]
             if method not in method_types:
@@ -177,14 +178,14 @@ class Localiser:
         return np.array(detections)
 
     def get_ball_candidates_contour(
-            self,
-            sim_id: int,
-            morph_op: str,
-            morph_op_iters: int,
-            morph_op_SE_shape: Tuple[int, int],
-            blur_kernel_size: Tuple[int, int],
-            blur_sigma_x: int,
-            binary_thresh_low: int,
+        self,
+        sim_id: int,
+        morph_op: str,
+        morph_op_iters: int,
+        morph_op_SE_shape: Tuple[int, int],
+        blur_kernel_size: Tuple[int, int],
+        blur_sigma_x: int,
+        binary_thresh_low: int,
     ) -> List[List]:
         detections: List[List] = []
         # Extract frames from video
@@ -202,8 +203,8 @@ class Localiser:
         )
 
         for i in tqdm(
-                range(morph_op_frames.shape[0]),
-                desc=f"Localising ball (contour)",
+            range(morph_op_frames.shape[0]),
+            desc=f"Localising ball (contour)",
         ):
             # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
             contours, hierarchy = cv.findContours(
@@ -214,13 +215,19 @@ class Localiser:
                 for c in contours:
                     # Compute contour centroid
                     M = cv.moments(c)
-                    contour_centroid_x = int(M['m10'] / M['m00'])
-                    contour_centroid_y = int(M['m01'] / M['m00'])
+                    contour_centroid_x = int(M["m10"] / M["m00"])
+                    contour_centroid_y = int(M["m01"] / M["m00"])
 
                     # Compute area of contour
                     contour_area = cv.contourArea(c)
 
-                    estimated_pos.append((contour_centroid_x, contour_centroid_y, contour_area))
+                    estimated_pos.append(
+                        (
+                            contour_centroid_x,
+                            contour_centroid_y,
+                            math.sqrt(contour_area),
+                        )
+                    )
 
                 detections.append(estimated_pos)
 
@@ -241,20 +248,23 @@ class Localiser:
                 # # plt.savefig(f"detection{str(i).zfill(2)}.png")
                 # plt.show()
             else:
-                print(f"\nNo detections frame #{i}")
+                # No detections, worst values, position miles away from anywhere on the screen
+                # and area infinitely large when ball should be small
+                print(f"No detections frame #{i}")
+                detections.append([(0, 0, float("inf"))])
 
         return detections
 
     def get_ball_candidates(
-            self,
-            vid_path: Path,
-            morph_op: str,
-            detection_method: str,
-            morph_op_iters: int,
-            morph_op_SE_shape: Tuple[int, int],
-            blur_kernel_size: Tuple[int, int],
-            blur_sigma_x: int,
-            binary_thresh_low: int,
+        self,
+        vid_path: Path,
+        morph_op: str,
+        detection_method: str,
+        morph_op_iters: int,
+        morph_op_SE_shape: Tuple[int, int],
+        blur_kernel_size: Tuple[int, int],
+        blur_sigma_x: int,
+        binary_thresh_low: int,
     ) -> np.ndarray:
         # Extract frames from video
         video_frames: np.ndarray = extract_frames_from_vid(vid_path)
@@ -302,7 +312,7 @@ class Localiser:
         return detections
 
     def _display_detections(
-            self, detection_phases_frames: List[np.ndarray], morph_op: str, det_method: str
+        self, detection_phases_frames: List[np.ndarray], morph_op: str, det_method: str
     ):
         # Draw detections
         for i in range(detection_phases_frames[0].shape[0]):
