@@ -12,10 +12,10 @@ from tqdm import tqdm
 
 class SimVideoGen:
     def __init__(self, root_dir: Path):
-        self._root: Path = root_dir
-        self._vid_dir: Path = root_dir / "videos"
-        self._blurred_dir: Path = root_dir / "blurred_frames"
-        self._frames_dir: Path = root_dir / "sim_frames"
+        self._root_dir: Path = root_dir
+        self._vid_dir: Path = self._root_dir / "videos"
+        self._blurred_dir: Path = self._root_dir / "blurred_frames"
+        self._frames_dir: Path = self._root_dir / "sim_frames"
 
     def _apply_motion_blur(self, n_frames_avg: int, sim_id: int) -> None:
         logging.info("Blurring frames...")
@@ -27,7 +27,7 @@ class SimVideoGen:
         else:
             logging.info(f"Directory {blurred_out_dir} created.")
 
-        sim_frames_path: Path = self._root / "sim_frames" / f"sim_{sim_id}_frames"
+        sim_frames_path: Path = self._root_dir / "sim_frames" / f"sim_{sim_id}_frames"
         frame_paths: list = glob.glob(f"{str(sim_frames_path)}{os.path.sep}*.png")
         template_img: np.ndarray = cv2.imread(frame_paths[0], 1)
         averaged_frames: np.ndarray = np.zeros_like(template_img, float)

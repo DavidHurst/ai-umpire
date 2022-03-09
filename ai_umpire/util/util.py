@@ -15,23 +15,38 @@ __all__ = [
     "blur_frames",
     "binarize_frames",
     "apply_morph_op",
-    "sim_to_pixel_coord",
+    "wc_to_ic",
 ]
 
+HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
+    np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.75, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 3.0, -13.0, 1.0],
+        ]
+    )
+)
 
-def sim_to_pixel_coord(sim_x: float, sim_y: float) -> Tuple[int, int]:
-    """Apply affine transformation to simulation coordinate to obtain corresponding pixel coordinate.
-    Affine transform (assumes 480p image size) =
-        x_pix = a*x_sim + b*y_sim + c
-        y_pix = b*x_sim - a*y_sim + c
-    a, b, c and d are precomputed.
-    """
-    pixel_x: int = int((51.72 * sim_x) - (20.70 * sim_y) + 168.43)
-    pixel_y: int = int((-20.70 * sim_x) - (51.72 * sim_y) + 448.93)
-    # pixel_x: int = int(((-27.1141) * sim_x) - (53.0201 * sim_y) + 270.3765)
-    # pixel_y: int = int((53.0201 * sim_x) - ((-27.1141) * sim_y) + 449.2336)
 
-    return pixel_x, pixel_y
+def wc_to_ic(
+    pos_x_wc: float, pos_y_wc: float, pos_z_wc: float, img_dims: List[int]
+) -> Tuple[int, int]:
+    homog_ball_wc: np.ndarray = np.reshape(
+        np.array([pos_x_wc, pos_y_wc, pos_z_wc, 1]), (1, 4)
+    )
+    homog_tformed_ball_wc: np.ndarray = np.dot(homog_ball_wc, HOMOG_CAM_TFORM_MAT_INV)
+    tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[:, :-1]
+    pos_ic_coefs: np.ndarray = np.array(
+        [
+            0.5 + (tformed_ball_wc[:, 0] / tformed_ball_wc[:, -1]),
+            0.5 - (tformed_ball_wc[:, 1] / tformed_ball_wc[:, -1]),
+        ]
+    )
+    pos_ic: np.ndarray = np.multiply(np.reshape(img_dims, (2, 1)), pos_ic_coefs)
+
+    return pos_ic[0].item(), pos_ic[1].item()
 
 
 def binarize_frames(
