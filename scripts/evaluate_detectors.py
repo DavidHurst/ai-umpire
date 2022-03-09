@@ -218,8 +218,10 @@ if __name__ == "__main__":
                     for thresh in binarize_thresh_low_set:
                         param_vals = f"SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, blur_strength:{blur_strength}, thresh:{thresh}"
                         print(
-                            f"Trial configuration #{hparam_config}/{n_configs}".ljust(80, "-"),
-                            f"\nParams = {param_vals}"
+                            f"Trial configuration #{hparam_config}/{n_configs}".ljust(
+                                80, "-"
+                            ),
+                            f"\nParams = {param_vals}",
                         )
 
                         # Run and score detector
@@ -280,7 +282,7 @@ if __name__ == "__main__":
                             scalarised_objective = curr_scalarised_objectives
 
                         hparam_config += 1
-                        print('-' * 80, "\n")
+                        print("-" * 80, "\n")
 
     print("Optimal hyperparameter values found by grid search:\n", optimal_model_params)
     print("Optimal model performance:\n", optimal_model_scores)
