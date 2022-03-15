@@ -27,5 +27,5 @@ if __name__ == "__main__":
         n_frames_to_avg::n_frames_to_avg, :
     ].reset_index(drop=True)
 
-    interpreter = TrajectoryInterpreter()
-    interpreter.visualise(ball_pos_blurred_WC.to_numpy())
+    interpreter = TrajectoryInterpreter(ball_pos_blurred_WC.to_numpy())
+    interpreter.visualise()

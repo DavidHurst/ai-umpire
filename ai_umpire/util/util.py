@@ -50,10 +50,15 @@ def wc_to_ic(
 
 
 def binarize_frames(
-    frames: np.ndarray, thresh_low: int, thresh_high: int = 255
+    frames: np.ndarray,
+    thresh_low: int,
+    thresh_high: int = 255,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     binary_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc="Binarizing frames"):
+    for i in tqdm(
+        range(frames.shape[0]), desc="Binarizing frames", disable=disable_progbar
+    ):
         frame: np.ndarray = frames[i]
 
         # Normalise frame and convert to greyscale
@@ -75,10 +80,15 @@ def binarize_frames(
 
 
 def blur_frames(
-    frames: np.ndarray, kernel_sz: Tuple[int, int], sigma_x: int
+    frames: np.ndarray,
+    kernel_sz: Tuple[int, int],
+    sigma_x: int,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     blurred_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc="Blurring frames"):
+    for i in tqdm(
+        range(frames.shape[0]), desc="Blurring frames", disable=disable_progbar
+    ):
         blurred_frames.append(cv.GaussianBlur(frames[i], kernel_sz, sigma_x))
 
     return np.array(blurred_frames)
@@ -90,6 +100,7 @@ def apply_morph_op(
     n_iter: int,
     kernel_shape: Tuple[int, int],
     struc_el: np.ndarray = cv.MORPH_ELLIPSE,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     morph_ops: Dict[str, np.ndarray] = {
         "erode": cv.MORPH_ERODE,
@@ -103,7 +114,11 @@ def apply_morph_op(
         raise e
 
     eroded_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc=f"Applying morph. op. ({morph_op})"):
+    for i in tqdm(
+        range(frames.shape[0]),
+        desc=f"Applying morph. op. ({morph_op})",
+        disable=disable_progbar,
+    ):
         eroded_frame = cv.morphologyEx(
             src=frames[i],
             op=morph_ops[morph_op],
@@ -115,10 +130,14 @@ def apply_morph_op(
     return np.array(eroded_frames)
 
 
-def difference_frames(frames: np.ndarray) -> np.ndarray:
+def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.ndarray:
     foreground_segmented_frames: List[np.ndarray] = []
 
-    for i in tqdm(range(1, frames.shape[0] - 1), desc="Differencing frames"):
+    for i in tqdm(
+        range(1, frames.shape[0] - 1),
+        desc="Differencing frames",
+        disable=disable_progbar,
+    ):
         preceding: np.ndarray = frames[i - 1]
         current: np.ndarray = frames[i]
         succeeding: np.ndarray = frames[i + 1]
@@ -130,12 +149,14 @@ def difference_frames(frames: np.ndarray) -> np.ndarray:
     return np.array(foreground_segmented_frames)
 
 
-def extract_frames_from_vid(vid_path: Path) -> np.ndarray:
+def extract_frames_from_vid(
+    vid_path: Path, disable_progbar: bool = False
+) -> np.ndarray:
     logging.info("Extracting frames from video.")
     v_cap: cv.VideoCapture = cv.VideoCapture(str(vid_path), cv.CAP_FFMPEG)
     frames: List[np.ndarray] = []
 
-    pbar: tqdm = tqdm(desc="Extracting frames")
+    pbar: tqdm = tqdm(desc="Extracting frames", disable=disable_progbar)
     while v_cap.isOpened():
         ret, frame = v_cap.read()
 
