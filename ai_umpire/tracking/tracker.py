@@ -111,6 +111,68 @@ class KalmanFilter:
         return position_preds
 
 
-class Tracker:
-    def __init__(self):
-        pass
+class KalmanFilterB:
+    def __init__(
+        self,
+        measurements: np.ndarray,
+        mu_p: np.ndarray,
+        phi: np.ndarray,
+        psi: np.ndarray,
+        sigma_p: np.ndarray,
+        sigma_m: np.ndarray,
+    ) -> None:
+        self._x: np.ndarray = measurements.copy()
+        self.K: np.ndarray  # Kalman gain
+
+        self._t: int = 0  # Current time-step
+
+        # Temporal parameters
+        self._mu_p: np.ndarray = mu_p.copy()  # The mean change in the state
+        self._psi: np.ndarray = (
+            psi.copy()  # Relates the measurement to the state at time step t
+        )
+        self._sigma_p: np.ndarray = sigma_p.copy()  # Covariance of temporal model
+
+        # Measurement parameters
+        self._mu_m: np.ndarray = mu_p.copy()  # The measurement mean?
+        self._phi: np.ndarray = (
+            phi.copy()  # Relates current state to state at previous time step
+        )
+        self._sigma_m: np.ndarray = sigma_m.copy()  # Covariance of measurement model
+
+        # Initialise mean and covariance
+        self.mu = np.zeros_like(self._mu_p)
+        self.cov = np.identity(self.mu.shape[0]) * 500
+
+    def _predict(self) -> None:
+        self.mu = self._mu_p + (self._psi @ self.mu)  # State prediction
+        self.cov = self._sigma_p + (
+            self._psi @ self.cov @ self._psi.T
+        )  # Covariance prediction
+
+    def _compute_kalman_gain(self) -> None:
+        self.K = (
+            self.cov
+            @ self._phi.T
+            @ np.linalg.inv(self._sigma_m + (self._psi @ self.cov @ self._psi.T))
+        )
+
+    def _update(self) -> None:
+        # State update
+        self.mu = self.mu + (
+            self.K @ (self._x[self._t] - self._mu_m - (self._phi @ self.mu))
+        )
+
+        # Covariance update
+        I = np.identity(self.K.shape[0])
+        self.cov = (I - (self.K @ self._phi)) @ self.cov
+        self._t += 1  # Increment time step
+
+    def step(self) -> None:
+        self._predict()
+        self._compute_kalman_gain()
+        self._update()
+
+        print(self.mu)
+        print(self.cov)
+        print(self.K)

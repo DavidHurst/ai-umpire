@@ -202,7 +202,11 @@ class Localiser:
             blurred_frames, binary_thresh_low, disable_progbar=disable_progbar
         )
         morph_op_frames: np.ndarray = apply_morph_op(
-            binary_frames, morph_op, morph_op_iters, morph_op_SE_shape, disable_progbar=disable_progbar
+            binary_frames,
+            morph_op,
+            morph_op_iters,
+            morph_op_SE_shape,
+            disable_progbar=disable_progbar,
         )
 
         for i in tqdm(

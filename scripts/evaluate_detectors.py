@@ -193,17 +193,17 @@ if __name__ == "__main__":
     # binarize_thresh_low_set = [200, 230, 250]
     rng = np.random.default_rng()
 
-    opening_iters_set_set = list(rng.integers(1, 4, 1))
+    opening_iters_set_set = list(rng.integers(1, 4, 4))
 
-    sizes = rng.integers(2, 9, 1)
+    sizes = rng.integers(2, 9, 4)
     morph_op_SE_shape_set = list(zip(sizes, sizes))
 
-    sizes = [random.randrange(21, 71, 10) for _ in range(1)]
+    sizes = [random.randrange(21, 71, 10) for _ in range(3)]
     blur_kernel_size_set = list(zip(sizes, sizes))
 
-    blur_strength_set = list(rng.integers(1, 8, 1))
+    blur_strength_set = list(rng.integers(1, 8, 4))
 
-    binarize_thresh_low_set = [random.randrange(200, 250, 10) for _ in range(1)]
+    binarize_thresh_low_set = [random.randrange(200, 250, 10) for _ in range(3)]
 
     print("Randomly chosen hyperparameter values:")
     print("Opening iterations: ".ljust(35, " "), opening_iters_set_set)
@@ -245,7 +245,8 @@ if __name__ == "__main__":
             for kernel_sz in blur_kernel_size_set:
                 for blur_strength in blur_strength_set:
                     for thresh in binarize_thresh_low_set:
-                        param_vals = f"SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, blur_strength:{blur_strength}, thresh:{thresh}"
+                        param_vals = f"open_iters:{open_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, " \
+                                     f"blur_strength:{blur_strength}, thresh:{thresh}"
                         print(
                             f"Trial configuration #{hparam_config}/{n_configs}".ljust(
                                 80, "-"
