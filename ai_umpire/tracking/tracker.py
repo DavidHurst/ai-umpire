@@ -1,4 +1,4 @@
-__all__ = ["Tracker", "KalmanFilter"]
+__all__ = ["KalmanFilterB", "KalmanFilter"]
 
 from typing import Tuple, List
 
@@ -116,6 +116,7 @@ class KalmanFilterB:
         self,
         measurements: np.ndarray,
         mu_p: np.ndarray,
+        mu_m: np.ndarray,
         phi: np.ndarray,
         psi: np.ndarray,
         sigma_p: np.ndarray,
@@ -134,7 +135,7 @@ class KalmanFilterB:
         self._sigma_p: np.ndarray = sigma_p.copy()  # Covariance of temporal model
 
         # Measurement parameters
-        self._mu_m: np.ndarray = mu_p.copy()  # The measurement mean?
+        self._mu_m: np.ndarray = mu_m.copy()  # The measurement mean?
         self._phi: np.ndarray = (
             phi.copy()  # Relates current state to state at previous time step
         )
@@ -157,7 +158,7 @@ class KalmanFilterB:
             @ np.linalg.inv(self._sigma_m + (self._psi @ self.cov @ self._psi.T))
         )
 
-    def _update(self) -> None:
+    def _correct(self) -> None:
         # State update
         self.mu = self.mu + (
             self.K @ (self._x[self._t] - self._mu_m - (self._phi @ self.mu))
@@ -171,7 +172,7 @@ class KalmanFilterB:
     def step(self) -> None:
         self._predict()
         self._compute_kalman_gain()
-        self._update()
+        self._correct()
 
         print(self.mu)
         print(self.cov)
