@@ -145,6 +145,17 @@ class KalmanFilterB:
         self.mu = np.zeros_like(self._mu_p)
         self.cov = np.identity(self.mu.shape[0]) * 500
 
+        print("Init".center(40, "-"))
+        print("mu_p:\n", self._mu_p)
+        print("mu_m:\n", self._mu_m)
+        print("psi:\n", self._psi)
+        print("phi:\n", self._phi)
+        print("sigma_p:\n", self._sigma_p)
+        print("sigma_m:\n", self._sigma_m)
+
+        print("mu:\n", self.mu)
+        print("cov:\n", self.cov)
+
     def _predict(self) -> None:
         self.mu = self._mu_p + (self._psi @ self.mu)  # State prediction
         self.cov = self._sigma_p + (
@@ -161,19 +172,30 @@ class KalmanFilterB:
     def _correct(self) -> None:
         # State update
         self.mu = self.mu + (
-            self.K @ (self._x[self._t] - self._mu_m - (self._phi @ self.mu))
+            self.K
+            @ (
+                np.reshape(self._x[self._t], (2, 1))
+                - self._mu_m
+                - (self._phi @ self.mu)
+            )
         )
 
         # Covariance update
         I = np.identity(self.K.shape[0])
         self.cov = (I - (self.K @ self._phi)) @ self.cov
-        self._t += 1  # Increment time step
 
-    def step(self) -> None:
-        self._predict()
-        self._compute_kalman_gain()
-        self._correct()
+    def step(self) -> Tuple[np.ndarray, np.ndarray]:
+        if self._t < self._x.shape[0]:
+            self._predict()
+            self._compute_kalman_gain()
+            self._correct()
+            self._t += 1  # Increment time step
 
-        print(self.mu)
-        print(self.cov)
-        print(self.K)
+            print(f"Time Step #{self._t}".center(40, "-"))
+            print("mu:\n", self.mu)
+            print("cov:\n", self.cov)
+            print("K:\n", self.K)
+        else:
+            print("All measurements processed")
+
+        return self.mu, self.cov

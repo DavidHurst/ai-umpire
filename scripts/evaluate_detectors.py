@@ -245,8 +245,10 @@ if __name__ == "__main__":
             for kernel_sz in blur_kernel_size_set:
                 for blur_strength in blur_strength_set:
                     for thresh in binarize_thresh_low_set:
-                        param_vals = f"open_iters:{open_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, " \
-                                     f"blur_strength:{blur_strength}, thresh:{thresh}"
+                        param_vals = (
+                            f"open_iters:{open_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, "
+                            f"blur_strength:{blur_strength}, thresh:{thresh}"
+                        )
                         print(
                             f"Trial configuration #{hparam_config}/{n_configs}".ljust(
                                 80, "-"
