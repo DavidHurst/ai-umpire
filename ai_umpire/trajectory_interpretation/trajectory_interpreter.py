@@ -1,4 +1,5 @@
 from itertools import product, permutations
+from math import ceil, floor, prod
 
 import numpy as np
 
@@ -16,6 +17,7 @@ from ai_umpire.util import (
     WALL_HEIGHT,
     TIN_HEIGHT,
     WALL_THICKNESS,
+    gen_grid_of_points,
 )
 
 COURT_WALL_HEIGHT = WALL_HEIGHT
@@ -37,52 +39,71 @@ class TrajectoryInterpreter:
         self._kf: KalmanFilter = kalman_filter
         self.trajectory: np.ndarray = self._kf.get_trajectory()
 
-    def in_out_prob(self, n_samples_per_frame: int, sampling_area_size: int) -> float:
-        # mu_list = []
-        # cov_list = []
-        #
-        # for i in range(self.trajectory.shape[0]):
-        #     mu, cov = self._kf.step()
-        #     mu_list.append(mu)
-        #     cov_list.append(cov)
-        #     print(f"Step #{i + 1}: Prob of mu = {self._kf.prob_of_point(self._kf.mu)}")
+    def in_out_prob(
+        self,
+        n_dim_samples: list,
+        sampling_area_size: list,
+    ) -> float:
+        mu_list = []
+        cov_list = []
+        p_trajectory_in_out: float = 0.0
 
-        center = np.array([0, 0])
+        fig, ax = plt.subplots(figsize=(7, 5))
+        for i in range(1):  # self.trajectory.shape[0]):
+            mu, cov = self._kf.step()
+            mu_list.append(mu)
+            cov_list.append(cov)
 
-        x_off = np.linspace(
-            center[0] - sampling_area_size, center[0] + sampling_area_size, n_samples_per_frame
-        )
-        y_off = np.linspace(
-            center[1] - sampling_area_size, center[1] + sampling_area_size, n_samples_per_frame
-        )
+            sample_points = gen_grid_of_points(mu, n_dim_samples, sampling_area_size)
+            sample_point_probs = [self._kf.prob_of_point(np.reshape(p, (2, 1))) for p in sample_points]
 
-        x = [center[0] + offset for offset in x_off]
-        y = [center[1] + offset for offset in y_off]
+            p_trajectory_in_out += sum(sample_point_probs)
+            print(f"frame #{i}, p = {p_trajectory_in_out}")
 
-        sampled_points = np.empty((1, 2), float)
-        x_permutations = permutations(x, len(y))
+            for j in range(sample_points.shape[0]):
+                ax.text(sample_points[j][0], sample_points[j][1], f"{sample_point_probs[j]:.2f}")
 
-        for permutation in x_permutations:
-            for pair in list(zip(permutation, y)):
-                sampled_points = np.r_[sampled_points, np.reshape(np.array([pair[0], pair[1]]), (1, 2))]
-        sampled_points = sampled_points[1:]
+            rad_x = np.sqrt(cov[0, 0])  # Standard deviation of x
+            rad_y = np.sqrt(cov[1, 1])  # # Standard deviation of y
 
-        fig, ax = plt.subplots(figsize=(10, 10))
-        ax.plot(center[0], center[1], "bo", markersize=15, label="Mean", alpha=0.5)
-        ax.plot(sampled_points[:, 0], sampled_points[:, 1], "r+", label="Sampled Points", alpha=0.5)
-        ellipse = Ellipse(
-            (center[0], center[1]),
-            width=sampling_area_size * 2,
-            height=sampling_area_size * 2,
-            fill=False,
-            linestyle="-",
-            edgecolor="green",
-            alpha=0.5,
-            label="Example $\sigma$"
-        )
-        ax.add_patch(ellipse)
+            ax.plot(mu[0], mu[1], "bo", markersize=15, label="Mean", alpha=0.5)
+            ax.plot(
+                sample_points[:, 0],
+                sample_points[:, 1],
+                "r+",
+                label="Sampled Points",
+                alpha=0.5,
+            )
+            std_1 = Ellipse(
+                (mu[0], mu[1]),
+                width=rad_x,
+                height=rad_y,
+                fill=False,
+                linestyle="-",
+                edgecolor="green",
+                alpha=0.5,
+                label="$\sigma$",
+            )
+            std_2 = Ellipse(
+                (mu[0], mu[1]),
+                width=rad_x * 2,
+                height=rad_y * 2,
+                fill=False,
+                linestyle="--",
+                edgecolor="fuchsia",
+                alpha=0.5,
+                label="$2\sigma$",
+            )
+            ax.add_patch(std_1)
+            ax.add_patch(std_2)
+
+        title = "$\sum_0^m \sum_0^i p(x_i; \mu, \Sigma)$" + f"= {p_trajectory_in_out}" \
+                + "\n$m$ = # measurements, $i$ = # sample points"
+        ax.set_title(title)
         ax.legend()
+        plt.tight_layout()
         plt.show()
+        return p_trajectory_in_out
 
     def visualise(self) -> None:
         """Visualise estimated trajectory in 3D with confidence around ball position"""

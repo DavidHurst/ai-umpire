@@ -68,4 +68,4 @@ if __name__ == "__main__":
     )
 
     ti = TrajectoryInterpreter(kf)
-    ti.in_out_prob(5, 2)
+    ti.in_out_prob(n_dim_samples=[6, 2], sampling_area_size=[3, 1])

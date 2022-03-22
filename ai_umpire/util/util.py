@@ -19,6 +19,7 @@ __all__ = [
     "apply_morph_op",
     "wc_to_ic",
     "multivariate_norm_pdf",
+    "gen_grid_of_points",
 ]
 
 HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
@@ -31,6 +32,32 @@ HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
         ]
     )
 )
+
+
+def gen_grid_of_points(
+    center: np.ndarray,
+    n_dim_samples: list,
+    sampling_area_size: list,
+) -> np.ndarray:
+    x = np.linspace(
+        center[0] - (sampling_area_size[0] / 2),
+        center[0] + (sampling_area_size[0] / 2),
+        n_dim_samples[0],
+    )
+    y = np.linspace(
+        center[1] - (sampling_area_size[1] / 2),
+        center[1] + (sampling_area_size[1] / 2),
+        n_dim_samples[1],
+    )
+
+    sample_x = []
+    sample_y = []
+    for p1 in x:
+        for p2 in y:
+            sample_x.append(p1)
+            sample_y.append(p2)
+
+    return np.c_[np.array(sample_x), np.array(sample_y)]
 
 
 def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:

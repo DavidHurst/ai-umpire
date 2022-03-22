@@ -80,7 +80,6 @@ if __name__ == "__main__":
         cov_list.append(cov)
         print(f"Step #{kf._t}: Prob of mu = {kf.prob_of_point(kf.mu)}")
 
-
     print("End".center(40, "-"))
 
     pred = list(zip([x.item() for x, y in mu_list], [y.item() for x, y in mu_list]))
