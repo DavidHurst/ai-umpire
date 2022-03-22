@@ -8,6 +8,7 @@ from matplotlib.patches import Ellipse
 from numpy import linspace
 
 from ai_umpire import KalmanFilter
+from ai_umpire.util import multivariate_norm_pdf
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 sim_id = 5
@@ -17,28 +18,27 @@ sim_blurred_frames_path: Path = (
 )
 
 if __name__ == "__main__":
-    # Check that ball data file exisits
+    # Check that ball data file exists
     data_file_path = root_dir_path / "ball_pos" / f"sim_{sim_id}.csv"
     if not data_file_path.exists():
         raise IOError("Data file not found")
 
     col_names = ["x", "y", "z"]
     ball_pos = pd.DataFrame(pd.read_csv(data_file_path), columns=col_names)
-    # x = []
-    # y = []
-    # for theta in linspace(0, 1.8 * pi, 10):
-    #     # r = theta ** 1.1
-    #     x.append(cos(theta))
-    #     y.append(sin(theta))
+    x = []
+    y = []
+    for theta in linspace(0, 1.8 * pi, 10):
+        # r = theta ** 1.1
+        x.append(cos(theta))
+        y.append(sin(theta))
 
-    x = ball_pos["x"]
-    y = ball_pos["y"]
+    # x = ball_pos["x"]
+    # y = ball_pos["y"]
 
     rng = np.random.default_rng()
-    noise = rng.normal(0, 0.01, size=(400, 2))
 
     measurements = np.c_[x, y]
-    noisy_measurements = measurements + noise
+    noisy_measurements = measurements + rng.normal(0, 0.2, size=(measurements.shape[0], 2))
 
     n_variables = 2
     n_measurement_vals = measurements[0].shape[0]
@@ -78,40 +78,58 @@ if __name__ == "__main__":
         mu, cov = kf.step()
         mu_list.append(mu)
         cov_list.append(cov)
+        print(f"Step #{kf._t}: Prob of mu = {kf.prob_of_point(kf.mu)}")
+
 
     print("End".center(40, "-"))
 
     pred = list(zip([x.item() for x, y in mu_list], [y.item() for x, y in mu_list]))
+    sigma = 0.4
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 7), sharex="all", sharey="all")
 
-    plt.plot(x, y, "-b", label="GT", alpha=0.5, markersize=10)
-    plt.plot(x + noise[:, 0], y + noise[:, 1], "-g", label="Measurements", alpha=0.5, markersize=10)
-    plt.plot([x for x, _ in pred], [y for _, y in pred], "-r", label="Pred", alpha=0.5, markersize=10)
+    ax2.plot(x, y, "--k", label="GT", markersize=5)
+    ax1.plot(
+        noisy_measurements[:, 0],
+        noisy_measurements[:, 1],
+        "-k",
+        label="Noisy Measurements",
+    )
+    ax2.plot(
+        [x for x, _ in pred],
+        [y for _, y in pred],
+        "-rx",
+        label="Pred",
+        alpha=0.5,
+        markersize=10,
+    )
 
     # Draw confidence ellipses
-    # for cov, pred in zip(cov_list, pred):
-    #     n_std = 1.0
-    #     mean_x = pred[0]
-    #     mean_y = pred[1]
-    #
-    #     rad_x = np.sqrt(cov[0, 0])  # Standard deviation of x
-    #     rad_y = np.sqrt(cov[1, 1])  # # Standard deviation of y
-    #
-    #     ellipse = Ellipse(
-    #         (mean_x, mean_y),
-    #         width=rad_x * 10,
-    #         height=rad_y * 10,
-    #         fill=False,
-    #         linestyle="--",
-    #         edgecolor="blue",
-    #         alpha=0.5,
-    #     )
-    #     ax.add_patch(ellipse)
+    for cov, pred in zip(cov_list, pred):
+        n_std = 1.0
+        mean_x = pred[0]
+        mean_y = pred[1]
 
-    ax.set_xlabel("$x$")
-    ax.set_ylabel("$y$")
-    ax.title.set_text("Temporal Model = Simple Brownian")
+        rad_x = np.sqrt(cov[0, 0])  # Standard deviation of x
+        rad_y = np.sqrt(cov[1, 1])  # # Standard deviation of y
 
-    plt.legend()
+        ellipse = Ellipse(
+            (mean_x, mean_y),
+            width=rad_x * sigma,
+            height=rad_y * sigma,
+            fill=False,
+            linestyle="--",
+            edgecolor="blue",
+            alpha=0.5,
+        )
+        ax2.add_patch(ellipse)
+
+    ax1.set_xlabel("$x$")
+    ax1.set_ylabel("$y$")
+    ax2.set_xlabel("$x$")
+    fig.suptitle(f"Temporal Model = Simple Brownian, $\sigma = {sigma}$")
+
+    plt.tight_layout()
+    ax1.legend()
+    ax2.legend()
     plt.show()

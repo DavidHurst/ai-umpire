@@ -1,9 +1,11 @@
 __all__ = ["KalmanFilter"]
 
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
 import numpy as np
-from numpy.linalg import inv
+from numpy.linalg import inv, linalg
+
+from ai_umpire.util import multivariate_norm_pdf
 
 
 class KalmanFilter:
@@ -40,16 +42,22 @@ class KalmanFilter:
         self.mu = np.zeros_like(self._mu_p)
         self.cov = np.identity(self.mu.shape[0]) * 500
 
-        print("Init".center(40, "-"))
-        print("mu_p:\n", self._mu_p)
-        print("mu_m:\n", self._mu_m)
-        print("psi:\n", self._psi)
-        print("phi:\n", self._phi)
-        print("sigma_p:\n", self._sigma_p)
-        print("sigma_m:\n", self._sigma_m)
+        # print("Init".center(40, "-"))
+        # print("mu_p:\n", self._mu_p)
+        # print("mu_m:\n", self._mu_m)
+        # print("psi:\n", self._psi)
+        # print("phi:\n", self._phi)
+        # print("sigma_p:\n", self._sigma_p)
+        # print("sigma_m:\n", self._sigma_m)
+        #
+        # print("mu:\n", self.mu)
+        # print("cov:\n", self.cov)
 
-        print("mu:\n", self.mu)
-        print("cov:\n", self.cov)
+    def get_trajectory(self) -> np.ndarray:
+        return self._x
+
+    def prob_of_point(self, point: np.ndarray) -> float:
+        return multivariate_norm_pdf(point, self.mu, self.cov)
 
     def _predict(self) -> None:
         self.mu = self._mu_p + (self._psi @ self.mu)  # State prediction
@@ -86,10 +94,10 @@ class KalmanFilter:
             self._correct()
             self._t += 1  # Increment time step
 
-            print(f"Time Step #{self._t}".center(40, "-"))
-            print("mu:\n", self.mu)
-            print("cov:\n", self.cov)
-            print("K:\n", self.K)
+            # print(f"Time Step #{self._t}".center(40, "-"))
+            # print("mu:\n", self.mu)
+            # print("cov:\n", self.cov)
+            # print("K:\n", self.K)
         else:
             print("All measurements processed, returning final KF internal state.")
 
