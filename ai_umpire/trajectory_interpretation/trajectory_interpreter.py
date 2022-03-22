@@ -1,13 +1,15 @@
-from itertools import combinations, product, permutations, combinations_with_replacement
+from itertools import product, permutations
 
 import numpy as np
 
 __all__ = ["TrajectoryInterpreter"]
 
 from matplotlib import pyplot as plt
+from matplotlib.patches import Ellipse
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from ai_umpire import KalmanFilter
 from ai_umpire.util import (
     COURT_LENGTH,
     COURT_WIDTH,
@@ -31,8 +33,56 @@ front_wall_bb = {
 
 
 class TrajectoryInterpreter:
-    def __init__(self, estimated_ball_positions: np.ndarray):
-        self.trajectory: np.ndarray = estimated_ball_positions
+    def __init__(self, kalman_filter: KalmanFilter):
+        self._kf: KalmanFilter = kalman_filter
+        self.trajectory: np.ndarray = self._kf.get_trajectory()
+
+    def in_out_prob(self, n_samples_per_frame: int, sampling_area_size: int) -> float:
+        # mu_list = []
+        # cov_list = []
+        #
+        # for i in range(self.trajectory.shape[0]):
+        #     mu, cov = self._kf.step()
+        #     mu_list.append(mu)
+        #     cov_list.append(cov)
+        #     print(f"Step #{i + 1}: Prob of mu = {self._kf.prob_of_point(self._kf.mu)}")
+
+        center = np.array([0, 0])
+
+        x_off = np.linspace(
+            center[0] - sampling_area_size, center[0] + sampling_area_size, n_samples_per_frame
+        )
+        y_off = np.linspace(
+            center[1] - sampling_area_size, center[1] + sampling_area_size, n_samples_per_frame
+        )
+
+        x = [center[0] + offset for offset in x_off]
+        y = [center[1] + offset for offset in y_off]
+
+        sampled_points = np.empty((1, 2), float)
+        x_permutations = permutations(x, len(y))
+
+        for permutation in x_permutations:
+            for pair in list(zip(permutation, y)):
+                sampled_points = np.r_[sampled_points, np.reshape(np.array([pair[0], pair[1]]), (1, 2))]
+        sampled_points = sampled_points[1:]
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.plot(center[0], center[1], "bo", markersize=15, label="Mean", alpha=0.5)
+        ax.plot(sampled_points[:, 0], sampled_points[:, 1], "r+", label="Sampled Points", alpha=0.5)
+        ellipse = Ellipse(
+            (center[0], center[1]),
+            width=sampling_area_size * 2,
+            height=sampling_area_size * 2,
+            fill=False,
+            linestyle="-",
+            edgecolor="green",
+            alpha=0.5,
+            label="Example $\sigma$"
+        )
+        ax.add_patch(ellipse)
+        ax.legend()
+        plt.show()
 
     def visualise(self) -> None:
         """Visualise estimated trajectory in 3D with confidence around ball position"""

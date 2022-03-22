@@ -5,6 +5,8 @@ import numpy as np
 import cv2 as cv
 import logging
 
+from numpy import pi
+from numpy.linalg import inv, det
 from tqdm import tqdm
 import pychrono as chrono
 
@@ -16,6 +18,7 @@ __all__ = [
     "binarize_frames",
     "apply_morph_op",
     "wc_to_ic",
+    "multivariate_norm_pdf",
 ]
 
 HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
@@ -28,6 +31,17 @@ HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
         ]
     )
 )
+
+
+def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
+    if x.shape[0] != mu.shape[0] or sigma.shape != (x.shape[0], x.shape[0]):
+        raise ValueError("Matrix/vector dimensions incompatible.")
+    if det(sigma) == 0:
+        raise ValueError("The covariance matrix can't be singular.")
+
+    numerator = np.exp(-0.5 * (x - mu).T @ inv(sigma) @ (x - mu))
+    denominator = np.sqrt((2 * pi) ** x.shape[0] * det(sigma))
+    return (numerator / denominator).item()
 
 
 def wc_to_ic(
