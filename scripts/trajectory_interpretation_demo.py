@@ -39,10 +39,12 @@ if __name__ == "__main__":
     # x = ball_pos["x"]
     # y = ball_pos["y"]
 
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(111)
 
     measurements = np.c_[x, y]
-    noisy_measurements = measurements + rng.normal(0, 0.2, size=(measurements.shape[0], 2))
+    noisy_measurements = measurements + rng.normal(
+        0, 0.2, size=(measurements.shape[0], 2)
+    )
 
     n_variables = 2
     n_measurement_vals = measurements[0].shape[0]
@@ -68,4 +70,4 @@ if __name__ == "__main__":
     )
 
     ti = TrajectoryInterpreter(kf)
-    ti.in_out_prob(n_dim_samples=[6, 2], sampling_area_size=[3, 1])
+    ti.in_out_prob(n_dim_samples=[3, 3], sampling_area_size=[0.5, 0.5])

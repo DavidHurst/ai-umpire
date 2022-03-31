@@ -38,7 +38,9 @@ if __name__ == "__main__":
     rng = np.random.default_rng()
 
     measurements = np.c_[x, y]
-    noisy_measurements = measurements + rng.normal(0, 0.2, size=(measurements.shape[0], 2))
+    noisy_measurements = measurements + rng.normal(
+        0, 0.2, size=(measurements.shape[0], 2)
+    )
 
     n_variables = 2
     n_measurement_vals = measurements[0].shape[0]
