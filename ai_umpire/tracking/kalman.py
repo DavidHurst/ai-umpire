@@ -11,6 +11,8 @@ from ai_umpire.util import multivariate_norm_pdf
 class KalmanFilter:
     def __init__(
         self,
+        *,
+        n_variables: int,
         measurements: np.ndarray,
         mu_p: np.ndarray,
         mu_m: np.ndarray,
@@ -19,6 +21,7 @@ class KalmanFilter:
         sigma_p: np.ndarray,
         sigma_m: np.ndarray,
     ) -> None:
+        self._n_variables: int = n_variables
         self._x: np.ndarray = measurements.copy()
         self.K: np.ndarray  # Kalman gain
 
@@ -77,7 +80,7 @@ class KalmanFilter:
         self.mu = self.mu + (
             self.K
             @ (
-                np.reshape(self._x[self._t], (2, 1))
+                np.reshape(self._x[self._t], (3, 1))
                 - self._mu_m
                 - (self._phi @ self.mu)
             )
@@ -102,3 +105,8 @@ class KalmanFilter:
             print("All measurements processed, returning final KF internal state.")
 
         return self.mu, self.cov
+
+    def n_variables(self) -> int:
+        return self._n_variables
+
+

@@ -39,6 +39,12 @@ def gen_grid_of_points(
     n_dim_samples: list,
     sampling_area_size: list,
 ) -> np.ndarray:
+    if center.shape[0] != 3:
+        raise ValueError("Expecting 3D point for center.")
+    if len(sampling_area_size) != center.shape[0]:
+        raise ValueError("You must provide a sample area size for each dimension.")
+    if len(n_dim_samples) != center.shape[0]:
+        raise ValueError("You must provide a number of samples each dimension.")
     x = np.linspace(
         center[0] - (sampling_area_size[0] / 2),
         center[0] + (sampling_area_size[0] / 2),
@@ -49,20 +55,31 @@ def gen_grid_of_points(
         center[1] + (sampling_area_size[1] / 2),
         n_dim_samples[1],
     )
+    z = np.linspace(
+        center[2] - (sampling_area_size[2] / 2),
+        center[2] + (sampling_area_size[2] / 2),
+        n_dim_samples[2],
+    )
+
 
     sample_x = []
     sample_y = []
+    sample_z = []
     for p1 in x:
         for p2 in y:
-            sample_x.append(p1)
-            sample_y.append(p2)
+            for p3 in z:
+                sample_x.append(p1)
+                sample_y.append(p2)
+                sample_z.append(p3)
 
-    return np.c_[np.array(sample_x), np.array(sample_y)]
+    return np.c_[np.array(sample_x), np.array(sample_y), np.array(sample_z)]
 
 
 def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
-    if x.shape[0] != mu.shape[0] or sigma.shape != (x.shape[0], x.shape[0]):
-        raise ValueError("Matrix/vector dimensions incompatible.")
+    if x.shape[0] != mu.shape[0]:
+        raise ValueError("Mean and sample dimensions incompatible.")
+    if sigma.shape != (x.shape[0], x.shape[0]):
+        raise ValueError("Non-square covariance matrix.")
     if det(sigma) == 0:
         raise ValueError("The covariance matrix can't be singular.")
 

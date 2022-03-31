@@ -29,24 +29,25 @@ if __name__ == "__main__":
         n_frames_to_avg::n_frames_to_avg, :
     ].reset_index(drop=True)
 
-    x = []
-    y = []
-    for theta in linspace(0, 1.8 * pi, 10):
-        # r = theta ** 1.1
-        x.append(cos(theta))
-        y.append(sin(theta))
+    # x = []
+    # y = []
+    # for theta in linspace(0, 1.8 * pi, 10):
+    #     # r = theta ** 1.1
+    #     x.append(cos(theta))
+    #     y.append(sin(theta))
 
-    # x = ball_pos["x"]
-    # y = ball_pos["y"]
+    x = ball_pos_blurred_WC["x"]
+    y = ball_pos_blurred_WC["y"]
+    z = ball_pos_blurred_WC["z"]
 
     rng = np.random.default_rng(111)
 
-    measurements = np.c_[x, y]
+    measurements = np.c_[x, y, z]
     noisy_measurements = measurements + rng.normal(
-        0, 0.2, size=(measurements.shape[0], 2)
+        0, 0.02, size=(measurements.shape[0], 3)
     )
 
-    n_variables = 2
+    n_variables = 3
     n_measurement_vals = measurements[0].shape[0]
     mu_p = np.zeros((n_variables, 1))
     mu_m = np.zeros((n_measurement_vals, 1))
@@ -60,6 +61,7 @@ if __name__ == "__main__":
     sigma_m = np.identity(n_variables) * 4
 
     kf = KalmanFilter(
+        n_variables=n_variables,
         measurements=noisy_measurements,
         sigma_m=sigma_m,
         sigma_p=sigma_p,
@@ -70,4 +72,4 @@ if __name__ == "__main__":
     )
 
     ti = TrajectoryInterpreter(kf)
-    ti.in_out_prob(n_dim_samples=[3, 3], sampling_area_size=[0.5, 0.5])
+    ti.in_out_prob(n_dim_samples=[8, 8, 8], n_std_devs_to_sample=2)
