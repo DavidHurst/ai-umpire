@@ -4,15 +4,12 @@ import logging
 import math
 from math import sqrt
 from pathlib import Path
+from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
-from typing import List, Tuple
-
 from matplotlib import pyplot as plt
-from scipy.spatial import ConvexHull
 from skimage.feature import blob_log, blob_dog, blob_doh
-
 from tqdm import tqdm
 
 from ai_umpire.util import (

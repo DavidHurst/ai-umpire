@@ -1,9 +1,9 @@
 __all__ = ["KalmanFilter"]
 
-from typing import Tuple, List, Any
+from typing import Tuple
 
 import numpy as np
-from numpy.linalg import inv, linalg
+from numpy.linalg import inv
 
 from ai_umpire.util import multivariate_norm_pdf
 
@@ -108,5 +108,3 @@ class KalmanFilter:
 
     def n_variables(self) -> int:
         return self._n_variables
-
-

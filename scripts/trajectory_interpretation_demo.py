@@ -29,13 +29,6 @@ if __name__ == "__main__":
         n_frames_to_avg::n_frames_to_avg, :
     ].reset_index(drop=True)
 
-    # x = []
-    # y = []
-    # for theta in linspace(0, 1.8 * pi, 10):
-    #     # r = theta ** 1.1
-    #     x.append(cos(theta))
-    #     y.append(sin(theta))
-
     x = ball_pos_blurred_WC["x"]
     y = ball_pos_blurred_WC["y"]
     z = ball_pos_blurred_WC["z"]
@@ -62,7 +55,7 @@ if __name__ == "__main__":
 
     kf = KalmanFilter(
         n_variables=n_variables,
-        measurements=noisy_measurements,
+        measurements=measurements,
         sigma_m=sigma_m,
         sigma_p=sigma_p,
         phi=phi,
@@ -71,5 +64,5 @@ if __name__ == "__main__":
         mu_p=mu_p,
     )
 
-    ti = TrajectoryInterpreter(kf)
-    ti.in_out_prob(n_dim_samples=[8, 8, 8], n_std_devs_to_sample=2)
+    ti = TrajectoryInterpreter(kalman_filter=kf)
+    ti.in_out_prob(n_dim_samples=[5, 5, 5], n_std_devs_to_sample=1)

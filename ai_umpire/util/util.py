@@ -1,18 +1,15 @@
+import logging
 from pathlib import Path
 from typing import List, Tuple, Dict
 
-import numpy as np
 import cv2 as cv
-import logging
-
+import numpy as np
 from numpy import pi
 from numpy.linalg import inv, det
 from tqdm import tqdm
-import pychrono as chrono
 
 __all__ = [
     "extract_frames_from_vid",
-    "MyReportContactCallback",
     "difference_frames",
     "blur_frames",
     "binarize_frames",
@@ -60,7 +57,6 @@ def gen_grid_of_points(
         center[2] + (sampling_area_size[2] / 2),
         n_dim_samples[2],
     )
-
 
     sample_x = []
     sample_y = []
@@ -228,32 +224,3 @@ def extract_frames_from_vid(
     v_cap.release()
     logging.info("Frames extracted successfully.")
     return np.array(frames)
-
-
-class MyReportContactCallback(chrono.ReportContactCallback):
-    def __init__(self):
-        super(MyReportContactCallback, self).__init__()
-        self._contacts = []
-
-    def OnReportContact(
-        self,
-        contact_point_A,
-        contact_point_B,
-        plane_coord,
-        distance,
-        eff_radius,
-        react_forces,
-        react_torques,
-        contactobjA,
-        contactobjB,
-    ):
-        bodyUpA = chrono.CastContactableToChBody(contactobjA)
-        nameA = bodyUpA.GetName()
-        bodyUpB = chrono.CastContactableToChBody(contactobjB)
-        nameB = bodyUpB.GetName()
-        if nameB != "Floor" and nameA != "Floor":
-            self._contacts.append("Contact between {nameA} & {nameB}")
-        return True  # return False to stop reporting contacts
-
-    def reset(self):
-        self._contacts = []
