@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     kf = KalmanFilter(
         n_variables=n_variables,
-        measurements=measurements,
+        measurements=noisy_measurements,
         sigma_m=sigma_m,
         sigma_p=sigma_p,
         phi=phi,
@@ -64,5 +64,5 @@ if __name__ == "__main__":
         mu_p=mu_p,
     )
 
-    ti = TrajectoryInterpreter(kalman_filter=kf)
-    ti.in_out_prob(n_dim_samples=[5, 5, 5], n_std_devs_to_sample=1)
+    ti = TrajectoryInterpreter(kalman_filter=kf, n_dim_samples=[8, 8, 8], n_std_devs_to_sample=1)
+    ti.interpret_trajectory(visualise=False, save=True)

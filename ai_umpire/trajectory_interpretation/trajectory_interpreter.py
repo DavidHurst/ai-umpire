@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 import numpy as np
 
@@ -6,50 +6,78 @@ __all__ = ["TrajectoryInterpreter"]
 
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import patch_2d_to_3d, pathpatch_2d_to_3d, Poly3DCollection
-from mpl_toolkits.mplot3d.proj3d import transform
+from mpl_toolkits.mplot3d.art3d import (
+    Poly3DCollection,
+)
 from scipy.spatial import Delaunay
+from tqdm import tqdm
 
 from ai_umpire import KalmanFilter
 from ai_umpire.util import (
     FIELD_BOUNDING_BOXES as court_BBs,
     gen_grid_of_points,
 )
-from ai_umpire.util.field_constants import HALF_COURT_WIDTH, BB_DEPTH
+from ai_umpire.util.field_constants import HALF_COURT_WIDTH, BB_DEPTH, HALF_COURT_LENGTH
 
-plt.rcParams["figure.figsize"] = (12, 10)
+plt.rcParams["figure.figsize"] = (10, 10)
 
 
 class TrajectoryInterpreter:
-    def __init__(self, *, kalman_filter: KalmanFilter):
+    def __init__(
+        self,
+        *,
+        kalman_filter: KalmanFilter,
+        n_dim_samples: List = None,
+        n_std_devs_to_sample: int = 1,
+    ):
+        if n_dim_samples is None:
+            n_dim_samples = [5, 5, 5]
         self._kf: KalmanFilter = kalman_filter
         self._trajectory: np.ndarray = self._kf.get_trajectory()
         self._n_measurements = self._trajectory.shape[0]
-        self._n_variables = self._kf.n_variables()
-        self._init_vis()
+        self._n_variables = self._kf.get_n_variables()
+        if len(n_dim_samples) != self._n_variables:
+            raise ValueError(
+                "You must provide how many points to sample for each dimension."
+            )
+        self._dim_samples = n_dim_samples
+        self._sample_size_coef = n_std_devs_to_sample
 
-    def _init_vis(self) -> None:
-        # title = (
-        #         "$\sum_0^m \sum_0^i InOut(p) \\times p(x_i; \mu, \Sigma)$"
-        #         + f"= {p_trajectory_out:.5f}"
-        #         + f"\n$m$ = {self._n_measurements} (# measurements), $i$ = {prod(n_dim_samples)} (# sample points)"
-        # )
-        # title = f"$p(inOut(T)) = {p_trajectory_out:.5f}$"
+        # Dictionary to store collision probabilities for all bounding boxes after processing each measurement
+        # {bb:[p(m_1), p(m_2), ...], ...}
+        self.bb_collision_probs: Dict = {name: [] for name in court_BBs.keys()}
 
+    def _visualise_interpretation(
+        self,
+        mu: np.ndarray,
+        *,
+        show_sample_points: bool = False,
+        sample_points: np.ndarray,
+        bbs_to_show: str = "all",
+        show_bb_verts: bool = True,
+        save: bool = False,
+        display: bool = False,
+    ) -> None:
+        if bbs_to_show not in ["all", "out", "in"]:
+            raise ValueError(
+                "Options for bbs to show are: ['all', 'out_bbs', 'in_bbs']"
+            )
         fig = plt.figure()
-        ax = Axes3D(fig, elev=15, azim=-175)
+        self._ax = Axes3D(fig, elev=20, azim=-140)
 
-        plt.gca().grid(False)
-        plt.gca().set_xlim3d(-4, 4)
-        plt.gca().set_zlim3d(0, 7)
-        plt.gca().set_ylim3d(-6, 6)
-        plt.gca().set_xlabel("$x$")
-        plt.gca().set_zlabel("$y$")
-        plt.gca().set_ylabel("$z$")
-        # plt.gca().set_title(title)
+        self._ax.grid(False)
+        self._ax.set_title(
+            f"Probabilistic Interpretation of Measurement #{self._kf.get_t_step()}"
+        )
+        self._ax.set_xlim3d(-4, 4)
+        self._ax.set_zlim3d(0, 7)
+        self._ax.set_ylim3d(-6, 6)
+        self._ax.set_xlabel("$x$")
+        self._ax.set_zlabel("$y$")
+        self._ax.set_ylabel("$z$")
 
         # Plot measurements
-        plt.gca().plot3D(
+        self._ax.plot3D(
             self._trajectory[:, 0],
             self._trajectory[:, 1],
             self._trajectory[:, 2],
@@ -59,180 +87,206 @@ class TrajectoryInterpreter:
             zdir="y",
         )
 
+        # Show KF predicted mean
+        self._ax.plot3D(
+            mu[0],
+            mu[1],
+            mu[2],
+            "*",
+            alpha=0.7,
+            label="Mean",
+            zdir="y",
+            markersize=15,
+            zorder=4,
+        )
+
+        # Plot sample points
+        if show_sample_points:
+            self._ax.plot3D(
+                sample_points[:, 0],
+                sample_points[:, 1],
+                sample_points[:, 2],
+                "r+",
+                label="Sampled Points",
+                alpha=0.5,
+                zdir="y",
+            )
+
         # Plot bounding boxes corresponding to court walls and out-of-court regions
         for bb_name in court_BBs.keys():
-            if court_BBs[bb_name]["in_out"] == "out":
-                self._plot_bb(bb_name)
+            bb_collision_prob = self.bb_collision_probs[bb_name][
+                self._kf.get_t_step() - 1
+            ]
+            if bbs_to_show == "all":
+                self._plot_bb(
+                    bb_name=bb_name,
+                    bb_face_annotation="{:.4f}".format(bb_collision_prob),
+                    show_vertices=show_bb_verts,
+                    show_annotation=bb_collision_prob > 0.001,
+                )
+            else:
+                if court_BBs[bb_name]["in_out"] == bbs_to_show:
+                    self._plot_bb(
+                        bb_name=bb_name,
+                        bb_face_annotation="{:.4f}".format(bb_collision_prob),
+                        show_vertices=show_bb_verts,
+                        show_annotation=bb_collision_prob > 0.001,
+                    )
 
-    def in_out_prob(
-        self,
-        *,
-        n_dim_samples: List,
-        n_std_devs_to_sample: int = 1,
-    ) -> float:
-        mu_list = []
-        cov_list = []
-        p_trajectory_out: float = 0.0
+        self._ax.legend()
 
-        legend_shown = 0
+        if save:
+            plt.savefig(f"measurement_{self._kf.get_t_step() - 1}.png")
+        if display:
+            plt.show()
+
+    def interpret_trajectory(self, *, visualise: bool = False, save: bool = False):
         for i in range(self._n_measurements):
-            mu, cov = self._kf.step()
-            mu_list.append(mu)
-            cov_list.append(cov)
+            p, bb = self.interpret_next_measurement(visualise=visualise, save=save)
+            print(
+                f"Measurement #{i}, most likely collision with {bb} with probability {p}."
+            )
 
-            std_dev_x = np.sqrt(cov[0, 0])
-            std_dev_y = np.sqrt(cov[1, 1])
-            std_dev_z = np.sqrt(cov[2, 2])
-            sampling_area_size: List = [
-                std_dev_x * n_std_devs_to_sample,
-                std_dev_y * n_std_devs_to_sample,
-                std_dev_z * n_std_devs_to_sample,
-            ]
+    def interpret_next_measurement(
+        self, *, visualise: bool = False, save: bool = False
+    ) -> Tuple[float, str]:
+        """Return the probability of a measurement being out of court"""
+        mu, cov = self._kf.step()  # KF inference
 
-            # Generate sample points
-            sample_points = gen_grid_of_points(mu, n_dim_samples, sampling_area_size)
-            sample_points_probs = [
-                self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
-                for p in sample_points
-            ]
+        std_dev_x = np.sqrt(cov[0, 0])
+        std_dev_y = np.sqrt(cov[1, 1])
+        std_dev_z = np.sqrt(cov[2, 2])
+
+        # Generate sample area size with dimension sizes scaled by dimension's standard deviation
+        sampling_area_size: List = [
+            self._sample_size_coef * std_dev_x,
+            self._sample_size_coef * std_dev_y,
+            self._sample_size_coef * std_dev_z,
+        ]
+
+        # Generate grid of sample points
+        sample_points = gen_grid_of_points(mu, self._dim_samples, sampling_area_size)
+
+        # Generate sample points' probabilities given KF internal parameters for each bounding box
+        sample_points_probs = [
+            self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
+            for p in sample_points
+        ]
+        for bb_name in tqdm(court_BBs.keys(), desc="Calculating collision probabilities"):
+            # Calculate prob of collision with bb
             sample_points_weighted_probs = [
-                int(self._point_bb_collided(p, "right_wall_in_top"))
+                int(self._point_bb_collided(p, bb_name))
                 * self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
                 for p in sample_points
             ]
 
-            # Accumulate probabilities
             weighted_summed_p_samples = sum(sample_points_weighted_probs)
             summed_p_samples = sum(sample_points_probs)
-            p_measurement_out = weighted_summed_p_samples / summed_p_samples
+            collision_prob = weighted_summed_p_samples / summed_p_samples
 
-            p_trajectory_out = max(p_measurement_out, p_trajectory_out)
+            self.bb_collision_probs[bb_name].append(collision_prob)
 
-            # Plot
-            if legend_shown == 0:
-                plt.gca().plot3D(
-                    mu[0], mu[1], mu[2], "b^-", alpha=0.5, label="Mean", zdir="y"
-                )
-                legend_shown = 1
-            else:
-                plt.gca().plot3D(mu[0], mu[1], mu[2], "b^-", alpha=0.5, zdir="y")
+        if save:
+            self._visualise_interpretation(
+                mu,
+                sample_points=sample_points,
+                display=visualise,
+                save=save
+            )
 
-            # Plot sample point probabilities
-            # for j in range(sample_points.shape[0]):
-            #     plt.gca().text(
-            #         sample_points[j][0],
-            #         sample_points[j][1],
-            #         f"{sample_points_weighted_probs[j]:.2f}",
-            #     )
+        return self._most_likely_collision()
 
-            # Plot in out prob of measurement
-            # if p_measurement_out > 0.09:
-            #     plt.gca().text(
-            #         mu[0].item(),
-            #         mu[2].item(),
-            #         mu[1].item(),
-            #         f"{p_measurement_out:.3f}",
-            #         bbox=dict(facecolor='white', alpha=0.8)
-            #     )
-            #
-            # # Plot sample points
-            # plt.gca().plot3D(
-            #     sample_points[:, 0],
-            #     sample_points[:, 1],
-            #     sample_points[:, 2],
-            #     "r+",
-            #     label="Sampled Points",
-            #     alpha=0.5,
-            #     zdir="y"
-            # )
+    def _most_likely_collision(self) -> Tuple[float, str]:
+        collision_prob = 0.0
+        collision_bb = ""
 
-        plt.gca().legend()
-        plt.show()
-        return p_trajectory_out
+        for bb_name in court_BBs.keys():
+            bb_collision_prob = self.bb_collision_probs[bb_name][
+                self._kf.get_t_step() - 1
+            ]
+            if bb_collision_prob > collision_prob:
+                collision_prob = bb_collision_prob
+                collision_bb = bb_name
+        return collision_prob, collision_bb
 
     def _point_bb_collided(self, point: np.ndarray, bb_name: str) -> bool:
         if point.shape[0] != 3:
             raise ValueError("Expecting a 3D point.")
 
+        # For non-cuboid volumes, use Delaunay triangulation to detect if point is in polyhedron
         bb = court_BBs[bb_name]
-        if bb_name in [
-            "right_wall_out_bottom",
-            "left_wall_out_bottom",
-            "right_wall_in_top",
-            "left_wall_in_top",
-        ]:
+        if bb_name.startswith(("left", "right")):
             poly = bb["verts"]
             return Delaunay(poly).find_simplex(point) >= 0
 
+        # For cuboid use simple coordinate comparison
         return (
             (bb["min_x"] <= point[0].item() <= bb["max_x"])
             and (bb["min_y"] <= point[1].item() <= bb["max_y"])
             and (bb["min_z"] <= point[2].item() <= bb["max_z"])
         )
 
-    def _plot_bb(self, bb_name: str) -> None:
-        if bb_name in [
-            "right_wall_out_bottom",
-            "left_wall_out_bottom",
-            "right_wall_in_top",
-            "left_wall_in_top",
-        ]:
-            bb = court_BBs[bb_name]
+    def _plot_bb(
+        self,
+        *,
+        bb_name: str,
+        bb_face_annotation: str = None,
+        show_vertices: bool = False,
+        show_annotation: bool = False,
+    ) -> None:
+        bb = court_BBs[bb_name]
+
+        if bb_name.startswith(("left", "right")):
             verts = bb["verts"]
-            plt.gca().scatter3D(
+        else:
+            verts = [
+                [x, y, z]
+                for x in [bb["min_x"], bb["max_x"]]
+                for y in [bb["min_y"], bb["max_y"]]
+                for z in [bb["min_z"], bb["max_z"]]
+            ]
+        verts = np.array(verts)
+
+        # Isolate vertices of plane which correspond to the inner face of the wall polyhedron via masking
+        if bb_name.startswith(("front", "tin")):
+            face_verts = verts[~np.any(verts == HALF_COURT_LENGTH + BB_DEPTH, axis=1)]
+            # Swap face corners for non-intersecting plane plotting
+            face_verts[[0, 1]] = face_verts[[1, 0]]
+        elif bb_name.startswith("right"):
+            face_verts = verts[~np.any(verts == HALF_COURT_WIDTH + BB_DEPTH, axis=1)]
+        elif bb_name.startswith("left"):
+            face_verts = verts[~np.any(verts == -HALF_COURT_WIDTH - BB_DEPTH, axis=1)]
+        elif bb_name.startswith("back"):
+            face_verts = verts[~np.any(verts == -HALF_COURT_LENGTH - BB_DEPTH, axis=1)]
+            # Swap face corners for non-intersecting plane plotting
+            face_verts[[0, 1]] = face_verts[[1, 0]]
+        else:  # Back wall case
+            raise ValueError(f"Plotting face for {bb_name} not implemented")
+
+        # Annotate center of bounding boxes inner face
+        if show_annotation:
+            face_center_vert = np.mean(face_verts, axis=0)
+            self._ax.text(
+                face_center_vert[0],
+                face_center_vert[2],
+                face_center_vert[1],
+                bb_face_annotation,
+                zdir="y",
+                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.7),
+            )
+
+        # Convert vertices to list of lists for Poly3DCollection and swap z and y since no zdir param
+        face_verts = [list(zip(face_verts[:, 0], face_verts[:, 2], face_verts[:, 1]))]
+
+        # Plot volume inner face and vertices
+        self._ax.add_collection3d(
+            Poly3DCollection(face_verts, color=bb["colour"], alpha=0.3, lw=0.1)
+        )
+        if show_vertices:
+            self._ax.scatter3D(
                 verts[:, 0],
                 verts[:, 1],
                 verts[:, 2],
                 zdir="y",
                 color=bb["colour"],
             )
-            if bb_name.startswith("right"):
-                plane_verts = verts[~np.any(verts == HALF_COURT_WIDTH + BB_DEPTH, axis=1)]
-            else:
-                plane_verts = verts[~np.any(verts == -HALF_COURT_WIDTH - BB_DEPTH, axis=1)]
-            plane_verts = [list(zip(plane_verts[:, 0], plane_verts[:, 2], plane_verts[:, 1]))]
-            plt.gca().add_collection3d(Poly3DCollection(plane_verts, color=bb["colour"], alpha=0.5, lw=0.1))
-            return
-
-        bb = court_BBs[bb_name]
-        verts = []
-        for x in [bb["min_x"], bb["max_x"]]:
-            for y in [bb["min_y"], bb["max_y"]]:
-                for z in [bb["min_z"], bb["max_z"]]:
-                    verts.append([x, y, z])
-
-        verts = np.array(verts)
-
-        # ToDo: Refactor below to use Poly3DCollections to plot desired face.
-        xs = [bb["min_x"], bb["max_x"]]
-        ys = [bb["min_y"], bb["max_y"]]
-        z = bb["min_z"]
-
-        if bb_name == "back_wall" or bb_name == "back_wall_out":
-            z = bb["max_z"]
-        if bb_name == "left_wall_in_bottom" or bb_name == "left_wall_out_top":
-            xs = [bb["min_z"], bb["max_z"]]
-            X, Y = np.meshgrid(xs, ys)
-            plt.gca().plot_surface(
-                bb["max_x"], X, Y, alpha=0.5, facecolors=bb["colour"]
-                , lw=0.1
-            )
-        elif bb_name == "right_wall_in_bottom" or bb_name == "right_wall_out_top":
-            xs = [bb["min_z"], bb["max_z"]]
-            X, Y = np.meshgrid(xs, ys)
-            plt.gca().plot_surface(
-                bb["min_x"], X, Y, alpha=0.5, facecolors=bb["colour"]
-                , lw=0.1
-            )
-        else:
-            X, Y = np.meshgrid(xs, ys)
-            plt.gca().plot_surface(X, z, Y, alpha=0.5, facecolors=bb["colour"], lw=0.1)
-
-
-        plt.gca().scatter3D(
-            verts[:, 0],
-            verts[:, 1],
-            verts[:, 2],
-            zdir="y",
-            color=bb["colour"],
-        )

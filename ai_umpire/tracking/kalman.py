@@ -106,5 +106,8 @@ class KalmanFilter:
 
         return self.mu, self.cov
 
-    def n_variables(self) -> int:
+    def get_n_variables(self) -> int:
         return self._n_variables
+
+    def get_t_step(self) -> int:
+        return self._t
