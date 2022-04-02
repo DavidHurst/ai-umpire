@@ -30,6 +30,7 @@ class TrajectoryInterpreter:
         n_dim_samples: List = None,
         n_std_devs_to_sample: int = 1,
     ):
+        # ToDo: Bring KF init into this constructor, makes more sense
         if n_dim_samples is None:
             n_dim_samples = [5, 5, 5]
         self._kf: KalmanFilter = kalman_filter
@@ -186,12 +187,13 @@ class TrajectoryInterpreter:
 
             self.bb_collision_probs[bb_name].append(collision_prob)
 
-        if save:
+        if save or visualise:
             self._visualise_interpretation(
                 mu,
                 sample_points=sample_points,
                 display=visualise,
-                save=save
+                save=save,
+                show_sample_points=True
             )
 
         return self._most_likely_collision()

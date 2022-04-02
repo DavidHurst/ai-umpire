@@ -64,5 +64,5 @@ if __name__ == "__main__":
         mu_p=mu_p,
     )
 
-    ti = TrajectoryInterpreter(kalman_filter=kf, n_dim_samples=[8, 8, 8], n_std_devs_to_sample=1)
-    ti.interpret_trajectory(visualise=False, save=True)
+    ti = TrajectoryInterpreter(kalman_filter=kf, n_dim_samples=[10, 10, 10], n_std_devs_to_sample=1)
+    ti.interpret_trajectory(visualise=True, save=False)
