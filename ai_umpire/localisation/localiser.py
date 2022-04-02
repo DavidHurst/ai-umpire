@@ -4,15 +4,12 @@ import logging
 import math
 from math import sqrt
 from pathlib import Path
+from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
-from typing import List, Tuple
-
 from matplotlib import pyplot as plt
-from scipy.spatial import ConvexHull
 from skimage.feature import blob_log, blob_dog, blob_doh
-
 from tqdm import tqdm
 
 from ai_umpire.util import (
@@ -186,25 +183,33 @@ class Localiser:
         blur_kernel_size: Tuple[int, int],
         blur_sigma_x: int,
         binary_thresh_low: int,
+        disable_progbar: bool = False,
     ) -> List[List]:
         detections: List[List] = []
         # Extract frames from video
         vid_path: Path = self._vid_dir / f"sim_{sim_id}.mp4"
-        video_frames: np.ndarray = extract_frames_from_vid(vid_path)
+        video_frames: np.ndarray = extract_frames_from_vid(vid_path, disable_progbar)
 
         # Preprocess frames
-        fg_seg_frames: np.ndarray = difference_frames(video_frames)
+        fg_seg_frames: np.ndarray = difference_frames(video_frames, disable_progbar)
         blurred_frames: np.ndarray = blur_frames(
-            fg_seg_frames, blur_kernel_size, blur_sigma_x
+            fg_seg_frames, blur_kernel_size, blur_sigma_x, disable_progbar
         )
-        binary_frames: np.ndarray = binarize_frames(blurred_frames, binary_thresh_low)
+        binary_frames: np.ndarray = binarize_frames(
+            blurred_frames, binary_thresh_low, disable_progbar=disable_progbar
+        )
         morph_op_frames: np.ndarray = apply_morph_op(
-            binary_frames, morph_op, morph_op_iters, morph_op_SE_shape
+            binary_frames,
+            morph_op,
+            morph_op_iters,
+            morph_op_SE_shape,
+            disable_progbar=disable_progbar,
         )
 
         for i in tqdm(
             range(morph_op_frames.shape[0]),
             desc=f"Localising ball (contour)",
+            disable=disable_progbar,
         ):
             # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
             contours, hierarchy = cv.findContours(
@@ -248,10 +253,8 @@ class Localiser:
                 # # plt.savefig(f"detection{str(i).zfill(2)}.png")
                 # plt.show()
             else:
-                # No detections, worst values, position miles away from anywhere on the screen
-                # and area infinitely large when ball should be small
-                print(f"No detections frame #{i}")
-                detections.append([(0, 0, float("inf"))])
+                # No detections, placeholder values, will be replaced with fixed penalty downstream
+                detections.append([(float("inf"), float("inf"), float("inf"))])
 
         return detections
 

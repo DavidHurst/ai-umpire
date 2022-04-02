@@ -1,7 +1,6 @@
 import logging
 import random
 from pathlib import Path
-from random import randint
 from typing import List
 
 import pandas as pd
@@ -12,7 +11,6 @@ from tqdm import tqdm
 
 __all__ = ["Simulation"]
 
-# Ball material, parameters define collision properties
 from ai_umpire.simulation.fixed_sim_objs import *
 from ai_umpire.util import (
     PLAYER_HEIGHT,
@@ -21,9 +19,9 @@ from ai_umpire.util import (
     PURPLE_TEXTURE_POVRAY,
     BACK_WALL_OUT_LINE_HEIGHT,
     COURT_LENGTH,
-    MyReportContactCallback,
 )
 
+# Ball material, parameters define collision characteristics
 BALL_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
 BALL_MAT.SetRestitution(1)
 BALL_MAT.SetDampingF(1)
@@ -144,7 +142,6 @@ class Simulation:
             chrono.ChVectorD(-1, 0, -1),
         ]
         ball_pos: List[List[float, float, float]]
-        contact_reporter: MyReportContactCallback = MyReportContactCallback()
 
         if export:
             ball_pos: List[List[float, float, float]] = [[], [], []]

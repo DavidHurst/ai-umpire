@@ -1,21 +1,22 @@
+import logging
 from pathlib import Path
 from typing import List, Tuple, Dict
 
-import numpy as np
 import cv2 as cv
-import logging
-
+import numpy as np
+from numpy import pi
+from numpy.linalg import inv, det
 from tqdm import tqdm
-import pychrono as chrono
 
 __all__ = [
     "extract_frames_from_vid",
-    "MyReportContactCallback",
     "difference_frames",
     "blur_frames",
     "binarize_frames",
     "apply_morph_op",
     "wc_to_ic",
+    "multivariate_norm_pdf",
+    "gen_grid_of_points",
 ]
 
 HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
@@ -28,6 +29,59 @@ HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
         ]
     )
 )
+
+
+def gen_grid_of_points(
+    center: np.ndarray,
+    n_dim_samples: list,
+    sampling_area_size: list,
+) -> np.ndarray:
+    if center.shape[0] != 3:
+        raise ValueError("Expecting 3D point for center.")
+    if len(sampling_area_size) != center.shape[0]:
+        raise ValueError("You must provide a sample area size for each dimension.")
+    if len(n_dim_samples) != center.shape[0]:
+        raise ValueError("You must provide a number of samples each dimension.")
+    x = np.linspace(
+        center[0] - (sampling_area_size[0] / 2),
+        center[0] + (sampling_area_size[0] / 2),
+        n_dim_samples[0],
+    )
+    y = np.linspace(
+        center[1] - (sampling_area_size[1] / 2),
+        center[1] + (sampling_area_size[1] / 2),
+        n_dim_samples[1],
+    )
+    z = np.linspace(
+        center[2] - (sampling_area_size[2] / 2),
+        center[2] + (sampling_area_size[2] / 2),
+        n_dim_samples[2],
+    )
+
+    sample_x = []
+    sample_y = []
+    sample_z = []
+    for p1 in x:
+        for p2 in y:
+            for p3 in z:
+                sample_x.append(p1)
+                sample_y.append(p2)
+                sample_z.append(p3)
+
+    return np.c_[np.array(sample_x), np.array(sample_y), np.array(sample_z)]
+
+
+def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
+    if x.shape[0] != mu.shape[0]:
+        raise ValueError("Mean and sample dimensions incompatible.")
+    if sigma.shape != (x.shape[0], x.shape[0]):
+        raise ValueError("Non-square covariance matrix.")
+    if det(sigma) == 0:
+        raise ValueError("The covariance matrix can't be singular.")
+
+    numerator = np.exp(-0.5 * (x - mu).T @ inv(sigma) @ (x - mu))
+    denominator = np.sqrt((2 * pi) ** x.shape[0] * det(sigma))
+    return (numerator / denominator).item()
 
 
 def wc_to_ic(
@@ -50,10 +104,15 @@ def wc_to_ic(
 
 
 def binarize_frames(
-    frames: np.ndarray, thresh_low: int, thresh_high: int = 255
+    frames: np.ndarray,
+    thresh_low: int,
+    thresh_high: int = 255,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     binary_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc="Binarizing frames"):
+    for i in tqdm(
+        range(frames.shape[0]), desc="Binarizing frames", disable=disable_progbar
+    ):
         frame: np.ndarray = frames[i]
 
         # Normalise frame and convert to greyscale
@@ -75,10 +134,15 @@ def binarize_frames(
 
 
 def blur_frames(
-    frames: np.ndarray, kernel_sz: Tuple[int, int], sigma_x: int
+    frames: np.ndarray,
+    kernel_sz: Tuple[int, int],
+    sigma_x: int,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     blurred_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc="Blurring frames"):
+    for i in tqdm(
+        range(frames.shape[0]), desc="Blurring frames", disable=disable_progbar
+    ):
         blurred_frames.append(cv.GaussianBlur(frames[i], kernel_sz, sigma_x))
 
     return np.array(blurred_frames)
@@ -90,6 +154,7 @@ def apply_morph_op(
     n_iter: int,
     kernel_shape: Tuple[int, int],
     struc_el: np.ndarray = cv.MORPH_ELLIPSE,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     morph_ops: Dict[str, np.ndarray] = {
         "erode": cv.MORPH_ERODE,
@@ -103,7 +168,11 @@ def apply_morph_op(
         raise e
 
     eroded_frames: List[np.ndarray] = []
-    for i in tqdm(range(frames.shape[0]), desc=f"Applying morph. op. ({morph_op})"):
+    for i in tqdm(
+        range(frames.shape[0]),
+        desc=f"Applying morph. op. ({morph_op})",
+        disable=disable_progbar,
+    ):
         eroded_frame = cv.morphologyEx(
             src=frames[i],
             op=morph_ops[morph_op],
@@ -115,10 +184,14 @@ def apply_morph_op(
     return np.array(eroded_frames)
 
 
-def difference_frames(frames: np.ndarray) -> np.ndarray:
+def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.ndarray:
     foreground_segmented_frames: List[np.ndarray] = []
 
-    for i in tqdm(range(1, frames.shape[0] - 1), desc="Differencing frames"):
+    for i in tqdm(
+        range(1, frames.shape[0] - 1),
+        desc="Differencing frames",
+        disable=disable_progbar,
+    ):
         preceding: np.ndarray = frames[i - 1]
         current: np.ndarray = frames[i]
         succeeding: np.ndarray = frames[i + 1]
@@ -130,12 +203,14 @@ def difference_frames(frames: np.ndarray) -> np.ndarray:
     return np.array(foreground_segmented_frames)
 
 
-def extract_frames_from_vid(vid_path: Path) -> np.ndarray:
+def extract_frames_from_vid(
+    vid_path: Path, disable_progbar: bool = False
+) -> np.ndarray:
     logging.info("Extracting frames from video.")
     v_cap: cv.VideoCapture = cv.VideoCapture(str(vid_path), cv.CAP_FFMPEG)
     frames: List[np.ndarray] = []
 
-    pbar: tqdm = tqdm(desc="Extracting frames")
+    pbar: tqdm = tqdm(desc="Extracting frames", disable=disable_progbar)
     while v_cap.isOpened():
         ret, frame = v_cap.read()
 
@@ -149,32 +224,3 @@ def extract_frames_from_vid(vid_path: Path) -> np.ndarray:
     v_cap.release()
     logging.info("Frames extracted successfully.")
     return np.array(frames)
-
-
-class MyReportContactCallback(chrono.ReportContactCallback):
-    def __init__(self):
-        super(MyReportContactCallback, self).__init__()
-        self._contacts = []
-
-    def OnReportContact(
-        self,
-        contact_point_A,
-        contact_point_B,
-        plane_coord,
-        distance,
-        eff_radius,
-        react_forces,
-        react_torques,
-        contactobjA,
-        contactobjB,
-    ):
-        bodyUpA = chrono.CastContactableToChBody(contactobjA)
-        nameA = bodyUpA.GetName()
-        bodyUpB = chrono.CastContactableToChBody(contactobjB)
-        nameB = bodyUpB.GetName()
-        if nameB != "Floor" and nameA != "Floor":
-            self._contacts.append("Contact between {nameA} & {nameB}")
-        return True  # return False to stop reporting contacts
-
-    def reset(self):
-        self._contacts = []

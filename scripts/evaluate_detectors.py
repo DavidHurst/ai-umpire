@@ -1,6 +1,7 @@
 import json
 import math
 from pathlib import Path
+import random
 from typing import Tuple
 
 import matplotlib.pyplot as plt
@@ -23,6 +24,9 @@ desired_fps = 50
 n_frames_to_avg = int(n_rendered_frames / desired_fps)
 img_dims = [1024, 768]
 
+dist_penalty = 1000
+z_surrogate_penalty = 250
+
 
 def eval_contour_detector(
     n_trails: int,
@@ -43,6 +47,7 @@ def eval_contour_detector(
         blur_kernel_size=blur_kernel_size,
         blur_sigma_x=blur_strength,
         binary_thresh_low=binarize_thresh_low,
+        disable_progbar=True,
     )
 
     # Measure performance of detector, metric is Euclidean distance for x and y,
@@ -62,6 +67,8 @@ def eval_contour_detector(
         )
         euclid_dists = [
             math.sqrt(((det_x - ball_x_ic) ** 2) + ((det_y - ball_y_ic) ** 2))
+            if det_x != float("inf")
+            else dist_penalty
             for (det_x, det_y, _) in frame_detections[i]
         ]
 
@@ -69,10 +76,12 @@ def eval_contour_detector(
         min_euclid_dists.append(min(euclid_dists))
         max_euclid_dists.append(max(euclid_dists))
 
-        frame_z_estimates = [z_estim for (_, _, z_estim) in frame_detections[i]]
-        closest_det_idx = euclid_dists.index(min(euclid_dists))
-
-        z_surrogate_closest_dets.append(frame_z_estimates[closest_det_idx])
+        if euclid_dists[euclid_dists.index(min(euclid_dists))] == dist_penalty:
+            z_surrogate_closest_dets.append(z_surrogate_penalty)
+        else:
+            frame_z_estimates = [z_estim for (_, _, z_estim) in frame_detections[i]]
+            closest_det_idx = euclid_dists.index(min(euclid_dists))
+            z_surrogate_closest_dets.append(frame_z_estimates[closest_det_idx])
 
     mean_mean_dist = sum(avg_euclid_dists) / len(avg_euclid_dists)
     mean_min_dist = sum(min_euclid_dists) / len(min_euclid_dists)
@@ -176,12 +185,32 @@ if __name__ == "__main__":
     #     # plt.savefig(f"ball_true_{i}.png")
     #     plt.show()
 
-    # Perform grid search of hyperparameters:
-    opening_iters_set_set = [1, 2, 3]
-    morph_op_SE_shape_set = [(2, 2), (5, 5), (8, 8)]
-    blur_kernel_size_set = [(21, 21), (41, 41), (61, 61)]
-    blur_strength_set = [1, 2, 3]
-    binarize_thresh_low_set = [200, 230, 250]
+    # Perform random search of hyperparameters
+    # opening_iters_set_set = [6]
+    # morph_op_SE_shape_set = [(8, 8)]
+    # blur_kernel_size_set = [(21, 21), (41, 41), (61, 61)]
+    # blur_strength_set = [7]
+    # binarize_thresh_low_set = [200, 230, 250]
+    rng = np.random.default_rng()
+
+    opening_iters_set_set = list(rng.integers(1, 4, 4))
+
+    sizes = rng.integers(2, 9, 4)
+    morph_op_SE_shape_set = list(zip(sizes, sizes))
+
+    sizes = [random.randrange(21, 71, 10) for _ in range(3)]
+    blur_kernel_size_set = list(zip(sizes, sizes))
+
+    blur_strength_set = list(rng.integers(1, 8, 4))
+
+    binarize_thresh_low_set = [random.randrange(200, 250, 10) for _ in range(3)]
+
+    print("Randomly chosen hyperparameter values:")
+    print("Opening iterations: ".ljust(35, " "), opening_iters_set_set)
+    print("Morph. op. shape: ".ljust(35, " "), morph_op_SE_shape_set)
+    print("Blur kernel size:".ljust(35, " "), blur_kernel_size_set)
+    print("Blue strength:".ljust(35, " "), blur_strength_set)
+    print("Lower bound of binary threshold:".ljust(35, " "), binarize_thresh_low_set)
 
     n_configs = np.prod(
         [
@@ -216,10 +245,15 @@ if __name__ == "__main__":
             for kernel_sz in blur_kernel_size_set:
                 for blur_strength in blur_strength_set:
                     for thresh in binarize_thresh_low_set:
-                        param_vals = f"SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, blur_strength:{blur_strength}, thresh:{thresh}"
+                        param_vals = (
+                            f"open_iters:{open_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, "
+                            f"blur_strength:{blur_strength}, thresh:{thresh}"
+                        )
                         print(
-                            f"Trial configuration #{hparam_config}/{n_configs}".ljust(80, "-"),
-                            f"\nParams = {param_vals}"
+                            f"Trial configuration #{hparam_config}/{n_configs}".ljust(
+                                80, "-"
+                            ),
+                            f"\nParams = {param_vals}",
                         )
 
                         # Run and score detector
@@ -280,13 +314,12 @@ if __name__ == "__main__":
                             scalarised_objective = curr_scalarised_objectives
 
                         hparam_config += 1
-                        print('-' * 80, "\n")
+                        print("-" * 80, "\n")
 
     print("Optimal hyperparameter values found by grid search:\n", optimal_model_params)
     print("Optimal model performance:\n", optimal_model_scores)
-    out_file = open("optimal_model_params.json", "w")
-    json.dump(optimal_model_params, out_file)
-    out_file.close()
+    with open("optimal_model_params.txt", "w") as f:
+        f.write(str(optimal_model_params))
 
     _, _, _ = eval_contour_detector(
         n_trails=1,

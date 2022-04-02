@@ -57,6 +57,17 @@ def test_binarize_frames() -> None:
     assert blurred_frames.dtype == np.uint8
 
 
+def test_norm_pdf() -> None:
+    # x = np.array([[0], [0]])
+    # mu = np.array([[0], [0]])
+    # cov = np.eye(2)
+    #
+    # print(multivariate_norm_pdf(x, mu, cov) == 0.15915494309189535)
+    #
+    # exit()
+    pass
+
+
 @pytest.mark.parametrize("morph_op", ["erode", "open"])
 def test_morph_op(morph_op) -> None:
     extracted_frames: np.ndarray = extract_frames_from_vid(VID_PATH)
