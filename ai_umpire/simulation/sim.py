@@ -31,6 +31,14 @@ BALL_MAT.SetCompliance(0.001)
 PLAYER_MAT: chrono.ChMaterialSurfaceNSC = chrono.ChMaterialSurfaceNSC()
 PLAYER_MAT.SetSfriction(0.2)
 
+# ToDo list:
+""" 
+     * Automatically include the screen.inc file in rendered povray folders on export.
+     * Edit .ini file to change final frame to match number of frames produced, defaults to 1000
+     * Add continue if cancel/fail to .ini file
+     * Change output file type to JPEG
+"""
+
 
 class Simulation:
     def __init__(

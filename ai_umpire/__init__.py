@@ -1,4 +1,4 @@
 from .dataset import *
-from .localisation import *
+from .detection import *
 from .simulation import *
 from .tracking import *

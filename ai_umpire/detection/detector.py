@@ -1,15 +1,18 @@
-__all__ = ["Localiser"]
+__all__ = ["Detector"]
 
 import logging
 import math
 from math import sqrt
 from pathlib import Path
-from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
+from typing import List, Tuple
+
 from matplotlib import pyplot as plt
+from scipy.spatial import ConvexHull
 from skimage.feature import blob_log, blob_dog, blob_doh
+
 from tqdm import tqdm
 
 from ai_umpire.util import (
@@ -21,12 +24,13 @@ from ai_umpire.util import (
 )
 
 
-class Localiser:
+class Detector:
     def __init__(self, root_dir: Path):
         self._root_dir: Path = root_dir
         self._vid_dir: Path = self._root_dir / "videos"
         self._blurred_dir: Path = self._root_dir / "blurred_frames"
         self._frames_dir: Path = self._root_dir / "sim_frames"
+        self._all_detections = []
 
     def _localise_ball_blob_filter(self, frames: np.ndarray) -> np.ndarray:
         detections: List[List] = []
@@ -180,6 +184,7 @@ class Localiser:
         morph_op: str,
         morph_op_iters: int,
         morph_op_SE_shape: Tuple[int, int],
+        struc_el_shape: np.ndarray,
         blur_kernel_size: Tuple[int, int],
         blur_sigma_x: int,
         binary_thresh_low: int,
@@ -188,27 +193,35 @@ class Localiser:
         detections: List[List] = []
         # Extract frames from video
         vid_path: Path = self._vid_dir / f"sim_{sim_id}.mp4"
-        video_frames: np.ndarray = extract_frames_from_vid(vid_path, disable_progbar)
+        video_frames: np.ndarray = extract_frames_from_vid(
+            vid_path, disable_progbar=disable_progbar
+        )
 
         # Preprocess frames
-        fg_seg_frames: np.ndarray = difference_frames(video_frames, disable_progbar)
         blurred_frames: np.ndarray = blur_frames(
-            fg_seg_frames, blur_kernel_size, blur_sigma_x, disable_progbar
+            video_frames,
+            blur_kernel_size,
+            blur_sigma_x,
+            disable_progbar=disable_progbar,
+        )
+        fg_seg_frames: np.ndarray = difference_frames(
+            blurred_frames, disable_progbar=disable_progbar
         )
         binary_frames: np.ndarray = binarize_frames(
-            blurred_frames, binary_thresh_low, disable_progbar=disable_progbar
+            fg_seg_frames, binary_thresh_low, disable_progbar=disable_progbar
         )
         morph_op_frames: np.ndarray = apply_morph_op(
             binary_frames,
             morph_op,
             morph_op_iters,
             morph_op_SE_shape,
+            struc_el=struc_el_shape,
             disable_progbar=disable_progbar,
         )
 
         for i in tqdm(
             range(morph_op_frames.shape[0]),
-            desc=f"Localising ball (contour)",
+            desc=f"Localising ball (contour det.)",
             disable=disable_progbar,
         ):
             # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
@@ -220,8 +233,9 @@ class Localiser:
                 for c in contours:
                     # Compute contour centroid
                     M = cv.moments(c)
-                    contour_centroid_x = int(M["m10"] / M["m00"])
-                    contour_centroid_y = int(M["m01"] / M["m00"])
+                    m00 = M["m00"] + 1e-5  # Add 1e-5 to avoid div by 0
+                    contour_centroid_x = int(M["m10"] / m00)
+                    contour_centroid_y = int(M["m01"] / m00)
 
                     # Compute area of contour
                     contour_area = cv.contourArea(c)
@@ -236,26 +250,35 @@ class Localiser:
 
                 detections.append(estimated_pos)
 
-                # display_im = cv.imread(
-                #     str(
-                #         self._blurred_dir
-                #         / f"sim_{sim_id}_blurred"
-                #         / f"frame{str(i).zfill(5)}.png"
-                #     )
-                # )
+                display_im = cv.imread(
+                    str(
+                        self._blurred_dir
+                        / f"sim_{sim_id}_blurred"
+                        / f"frame{str(i).zfill(5)}.png"
+                    )
+                )
                 # cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
-                # axes[0].imshow(binary_frames[i], cmap="gray", vmin=0, vmax=255)
-                # axes[1].imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
-                # axes[2].imshow(cv.cvtColor(display_im, cv.COLOR_BGR2RGB))
+                # cv.imshow(f"Frame #{i} - Contours", display_im)
+                # cv.imshow(f"Frame #{i} - Differenced", fg_seg_frames[i])
+                # cv.imshow(f"Frame #{i} Features", morph_op_frames[i])
+                # cv.waitKey(0)
+                # fig, ax = plt.subplots(figsize=(10, 10))
+                # ax.imshow(fg_seg_frames[i], cmap="gray", vmin=0, vmax=255)
+                # ax.imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
+                # ax.imshow(cv.cvtColor(display_im, cv.COLOR_BGR2RGB))
                 # for ax in axes:
-                #     ax.axis('off')
+                # ax.axis("off")
                 # plt.tight_layout()
                 # # plt.savefig(f"detection{str(i).zfill(2)}.png")
                 # plt.show()
             else:
-                # No detections, placeholder values, will be replaced with fixed penalty downstream
-                detections.append([(float("inf"), float("inf"), float("inf"))])
+                # No detections, worst values, position miles away from anywhere on the screen
+                # and area infinitely large when ball should be small
+                print(f"No detections frame #{i}")
+                detections.append([(0, 0, float("inf"))])
 
+        # ToDo: convert to numpy array
+        self._all_detections = detections
         return detections
 
     def get_ball_candidates(

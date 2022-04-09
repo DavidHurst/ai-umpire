@@ -173,7 +173,9 @@ class TrajectoryInterpreter:
             self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
             for p in sample_points
         ]
-        for bb_name in tqdm(court_BBs.keys(), desc="Calculating collision probabilities"):
+        for bb_name in tqdm(
+            court_BBs.keys(), desc="Calculating collision probabilities"
+        ):
             # Calculate prob of collision with bb
             sample_points_weighted_probs = [
                 int(self._point_bb_collided(p, bb_name))
@@ -193,7 +195,7 @@ class TrajectoryInterpreter:
                 sample_points=sample_points,
                 display=visualise,
                 save=save,
-                show_sample_points=True
+                show_sample_points=True,
             )
 
         return self._most_likely_collision()

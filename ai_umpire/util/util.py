@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 
 import cv2 as cv
 import numpy as np
+from matplotlib import pyplot as plt
 from numpy import pi
 from numpy.linalg import inv, det
 from tqdm import tqdm
@@ -17,18 +18,19 @@ __all__ = [
     "wc_to_ic",
     "multivariate_norm_pdf",
     "gen_grid_of_points",
+    "CAM_EXTRINSICS_HOMOG",
 ]
 
-HOMOG_CAM_TFORM_MAT_INV: np.ndarray = np.linalg.inv(
-    np.array(
-        [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.75, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 3.0, -13.0, 1.0],
-        ]
-    )
+CAM_EXTRINSICS_HOMOG: np.ndarray = np.array(
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.75, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 3.0, -13.0, 1.0],
+    ]
 )
+
+CAM_EXTRINSICS_HOMOG_INV: np.ndarray = np.linalg.inv(CAM_EXTRINSICS_HOMOG)
 
 
 def gen_grid_of_points(
@@ -90,15 +92,17 @@ def wc_to_ic(
     homog_ball_wc: np.ndarray = np.reshape(
         np.array([pos_x_wc, pos_y_wc, pos_z_wc, 1]), (1, 4)
     )
-    homog_tformed_ball_wc: np.ndarray = np.dot(homog_ball_wc, HOMOG_CAM_TFORM_MAT_INV)
-    tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[:, :-1]
+    homog_tformed_ball_wc: np.ndarray = homog_ball_wc @ CAM_EXTRINSICS_HOMOG_INV
+    tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[
+        :, :-1
+    ]  # Convert homogenous to Cartesian
     pos_ic_coefs: np.ndarray = np.array(
         [
             0.5 + (tformed_ball_wc[:, 0] / tformed_ball_wc[:, -1]),
             0.5 - (tformed_ball_wc[:, 1] / tformed_ball_wc[:, -1]),
         ]
     )
-    pos_ic: np.ndarray = np.multiply(np.reshape(img_dims, (2, 1)), pos_ic_coefs)
+    pos_ic: np.ndarray = np.reshape(img_dims, (2, 1)) * pos_ic_coefs
 
     return pos_ic[0].item(), pos_ic[1].item()
 
@@ -153,7 +157,7 @@ def apply_morph_op(
     morph_op: str,
     n_iter: int,
     kernel_shape: Tuple[int, int],
-    struc_el: np.ndarray = cv.MORPH_ELLIPSE,
+    struc_el: np.ndarray = cv.MORPH_RECT,
     disable_progbar: bool = False,
 ) -> np.ndarray:
     morph_ops: Dict[str, np.ndarray] = {
@@ -192,13 +196,25 @@ def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.n
         desc="Differencing frames",
         disable=disable_progbar,
     ):
+        # Convert all to greyscale
         preceding: np.ndarray = frames[i - 1]
         current: np.ndarray = frames[i]
         succeeding: np.ndarray = frames[i + 1]
 
-        foreground_segmented_frames.append(
-            cv.bitwise_and(current - preceding, succeeding - current)
-        )
+        diff = cv.bitwise_and(current - preceding, succeeding - current)
+        # c_p = current - preceding
+        # s_c = succeeding - current
+
+        foreground_segmented_frames.append(diff)
+
+        # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
+        # axes[0].imshow(c_p)  # , cmap="gray", vmin=0, vmax=255)
+        # axes[1].imshow(s_c)  # , cmap="gray", vmin=0, vmax=255)
+        # axes[2].imshow(np.mean(diff, -1), cmap="gray", vmin=0, vmax=255)
+        # for ax in axes:
+        #     ax.axis("off")
+        # plt.tight_layout()
+        # plt.show()
 
     return np.array(foreground_segmented_frames)
 

@@ -4,10 +4,11 @@ from pathlib import Path
 import random
 from typing import Tuple
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from ai_umpire import SimVideoGen, Localiser
+from ai_umpire import SimVideoGen, Detector
 from ai_umpire.util import wc_to_ic
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -29,7 +30,6 @@ z_surrogate_penalty = 250
 
 
 def eval_contour_detector(
-    n_trails: int,
     opening_iters: int,
     morph_op_SE_shape: Tuple,
     blur_kernel_size: Tuple,
@@ -38,15 +38,16 @@ def eval_contour_detector(
     visualise: bool = False,
 ) -> Tuple:
     # Generate ball candidates per frame in video
-    loc = Localiser(root_dir_path)
-    frame_detections = loc.get_ball_candidates_contour(
+    detector = Detector(root_dir_path)
+    frame_detections = detector.get_ball_candidates_contour(
         sim_id=sim_id,
-        morph_op="open",
+        morph_op="close",
         morph_op_iters=opening_iters,
         morph_op_SE_shape=morph_op_SE_shape,
         blur_kernel_size=blur_kernel_size,
         blur_sigma_x=blur_strength,
         binary_thresh_low=binarize_thresh_low,
+        struc_el_shape=cv2.MORPH_RECT,
         disable_progbar=True,
     )
 
@@ -193,15 +194,15 @@ if __name__ == "__main__":
     # binarize_thresh_low_set = [200, 230, 250]
     rng = np.random.default_rng()
 
-    opening_iters_set_set = list(rng.integers(1, 4, 4))
+    opening_iters_set_set = list(rng.integers(1, 10, 3))
 
-    sizes = rng.integers(2, 9, 4)
+    sizes = rng.integers(2, 9, 3)
     morph_op_SE_shape_set = list(zip(sizes, sizes))
 
-    sizes = [random.randrange(21, 71, 10) for _ in range(3)]
+    sizes = [random.randrange(31, 91, 10) for _ in range(3)]
     blur_kernel_size_set = list(zip(sizes, sizes))
 
-    blur_strength_set = list(rng.integers(1, 8, 4))
+    blur_strength_set = list(rng.integers(4, 12, 3))
 
     binarize_thresh_low_set = [random.randrange(200, 250, 10) for _ in range(3)]
 
@@ -209,7 +210,7 @@ if __name__ == "__main__":
     print("Opening iterations: ".ljust(35, " "), opening_iters_set_set)
     print("Morph. op. shape: ".ljust(35, " "), morph_op_SE_shape_set)
     print("Blur kernel size:".ljust(35, " "), blur_kernel_size_set)
-    print("Blue strength:".ljust(35, " "), blur_strength_set)
+    print("Blur strength:".ljust(35, " "), blur_strength_set)
     print("Lower bound of binary threshold:".ljust(35, " "), binarize_thresh_low_set)
 
     n_configs = np.prod(
@@ -232,11 +233,10 @@ if __name__ == "__main__":
     }
     optimal_model_scores = {
         "mean_mean_dist": float("inf"),
-        "mean_min_dist": float("inf"),
         "closest_dets_corr": float("-inf"),
     }
-    objective_scaling_values = np.array([0.1, 1, 100])
-    objective_weights = np.array([1, 0.5, 0.8])
+    objective_scaling_values = np.array([0.1, 100])
+    objective_weights = np.array([1, 0.8])
 
     # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
     scalarised_objective = float("-inf")
@@ -257,8 +257,7 @@ if __name__ == "__main__":
                         )
 
                         # Run and score detector
-                        mean_dist, min_dist, z_corr = eval_contour_detector(
-                            n_trails=1,
+                        mean_dist, _, z_corr = eval_contour_detector(
                             opening_iters=open_iters,
                             morph_op_SE_shape=SE_shape,
                             blur_kernel_size=kernel_sz,
@@ -268,31 +267,18 @@ if __name__ == "__main__":
                         )
 
                         curr_scalarised_objectives = np.sum(
-                            np.array([-mean_dist, -min_dist, abs(z_corr)])
+                            np.array([-mean_dist, abs(z_corr)])
                             * objective_scaling_values
                             * objective_weights
                         )
                         print(
-                            "Metrics".ljust(25, " "),
-                            np.array([-mean_dist, -min_dist, abs(z_corr)]),
-                        )
-                        print(
-                            "Metrics (Processed)".ljust(25, " "),
-                            np.array([-mean_dist, -min_dist, abs(z_corr)]),
-                        )
-                        print(
-                            "Metrics Scaled".ljust(25, " "),
-                            np.array([-mean_dist, -min_dist, abs(z_corr)])
-                            * objective_scaling_values,
-                        )
-                        print(
                             "Metrics Scaled + Weighted".ljust(25, " "),
-                            np.array([-mean_dist, -min_dist, abs(z_corr)])
+                            np.array([-mean_dist, abs(z_corr)])
                             * objective_scaling_values
                             * objective_weights,
                         )
                         print(
-                            f"Scalarized objective: "
+                            f"Scalarized objective (maximising): "
                             f"\n   Current: {curr_scalarised_objectives:.4f}"
                             f"\n   Best:    {scalarised_objective:.4f}"
                         )
@@ -307,9 +293,8 @@ if __name__ == "__main__":
                                 "binarize_thresh_low": thresh,
                             }
                             optimal_model_scores = {
-                                "mean_mean_dist": float("inf"),
-                                "mean_min_dist": float("inf"),
-                                "closest_dets_corr": float("-inf"),
+                                "mean_mean_dist": mean_dist,
+                                "closest_dets_corr": z_corr,
                             }
                             scalarised_objective = curr_scalarised_objectives
 
@@ -318,11 +303,11 @@ if __name__ == "__main__":
 
     print("Optimal hyperparameter values found by grid search:\n", optimal_model_params)
     print("Optimal model performance:\n", optimal_model_scores)
+    print(f"Optimal model scalarised objective score = {scalarised_objective}")
     with open("optimal_model_params.txt", "w") as f:
         f.write(str(optimal_model_params))
 
     _, _, _ = eval_contour_detector(
-        n_trails=1,
         opening_iters=optimal_model_params["opening_iters"],
         morph_op_SE_shape=optimal_model_params["morph_op_SE_shape"],
         blur_kernel_size=optimal_model_params["blur_kernel_size"],

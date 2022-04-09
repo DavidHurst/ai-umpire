@@ -24,6 +24,9 @@ class SimVideoGen:
             blurred_out_dir.mkdir(parents=True, exist_ok=False)
         except FileExistsError as e:
             logging.error(f"Directory {blurred_out_dir} already exists. {e}")
+            raise FileExistsError(
+                f"Blurred frames directory for sim id {sim_id} already exists."
+            )
         else:
             logging.info(f"Directory {blurred_out_dir} created.")
 
@@ -34,6 +37,7 @@ class SimVideoGen:
         i: int = 0
         blurred_frame_count: int = 0
 
+        # ToDo: Do this with numpy, will be much faster
         for f_path in tqdm(frame_paths, desc="Applying motion blur"):
             frame = cv2.imread(f_path, 1)
             frame_rbg = frame[..., ::-1].copy()
@@ -95,7 +99,7 @@ class SimVideoGen:
             frameSize=f_size,
         )
 
-        for i in tqdm(range(len(img_array)), desc="Processing blurred frames"):
+        for i in tqdm(range(len(img_array)), desc="Encoding video"):
             logging.info(f"Processing blurred frame #{i}")
             writer.write(img_array[i])
         writer.release()
