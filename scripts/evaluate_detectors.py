@@ -8,7 +8,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from ai_umpire import SimVideoGen, Detector
+from ai_umpire import VideoGenerator, Detector
 from ai_umpire.util import wc_to_ic
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     # Generate video from simulation frames if it does not already exist
     if not (vid_dir / f"sim_{sim_id}.mp4").exists():
         print(f"Generating video for sim id {sim_id}")
-        vid_gen = SimVideoGen(root_dir=root_dir_path)
+        vid_gen = VideoGenerator(root_dir=root_dir_path)
         vid_gen.convert_frames_to_vid(sim_id, 50)
 
     # Check that ball data file exists

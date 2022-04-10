@@ -1,4 +1,4 @@
-__all__ = ["SimVideoGen"]
+__all__ = ["VideoGenerator"]
 
 import glob
 import logging
@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-class SimVideoGen:
+class VideoGenerator:
     def __init__(self, root_dir: Path):
         self._root_dir: Path = root_dir
         self._vid_dir: Path = self._root_dir / "videos"

@@ -5,7 +5,7 @@ from typing import List
 import pytest
 import pychrono as chrono
 
-from ai_umpire.simulation.sim import Simulation
+from ai_umpire.simulation.match_simulator import MatchSimulator
 
 ROOT = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 SIM_ID = 5
@@ -17,7 +17,7 @@ START_Z_POS: List[int] = [-2, -1, 0, 1]
 def sim_instance():
     players_x: List[int] = sample(START_X_POS, 2)
     players_z: List[int] = sample(START_Z_POS, 2)
-    sim = Simulation(
+    sim = MatchSimulator(
         sim_id=SIM_ID,
         root=ROOT,
         step_sz=0.005,

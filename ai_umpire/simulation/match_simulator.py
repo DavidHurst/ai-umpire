@@ -9,7 +9,7 @@ import pychrono.irrlicht as chronoirr
 import pychrono.postprocess as postprocess
 from tqdm import tqdm
 
-__all__ = ["Simulation"]
+__all__ = ["MatchSimulator"]
 
 from ai_umpire.simulation.fixed_sim_objs import *
 from ai_umpire.util import (
@@ -40,7 +40,7 @@ PLAYER_MAT.SetSfriction(0.2)
 """
 
 
-class Simulation:
+class MatchSimulator:
     def __init__(
         self,
         sim_id: int,

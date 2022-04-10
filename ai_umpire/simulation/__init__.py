@@ -1,1 +1,1 @@
-from .sim import *
+from .match_simulator import *

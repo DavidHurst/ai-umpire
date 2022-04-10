@@ -2,24 +2,29 @@ import math
 import random
 
 import numpy as np
+import pandas as pd
 import pychrono as chrono
 import cv2 as cv
 from pathlib import Path
 from random import sample, choice, uniform, randint
 from typing import List, Tuple
 
-from ai_umpire import Simulation, SimVideoGen
-from ai_umpire.detection import Detector
+from ai_umpire import (
+    MatchSimulator,
+    VideoGenerator,
+    Detector,
+    KalmanFilter,
+    TrajectoryInterpreter,
+)
+
 
 ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 SIM_ID: int = 6
 SIM_LENGTH: float = 2.0
 SIM_STEP_SIZE: float = 0.005
-N_RENDERED_IMAGES: int = math.ceil(
-    SIM_LENGTH / SIM_STEP_SIZE
-)  # Could also count how many images generated in dir
+N_RENDERED_IMAGES: int = int(SIM_LENGTH / SIM_STEP_SIZE)
 DESIRED_FPS: int = 50
-N_FRAMES_TO_AVERAGE: int = math.ceil(N_RENDERED_IMAGES / DESIRED_FPS)
+N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
 IMG_DIMS: List[int] = [1024, 768]
 START_X_POS: List[int] = [-2, -1, 0, 1]
 START_Z_POS: List[int] = [-2, -1, 0, 1]
@@ -29,16 +34,30 @@ START_Z_POS: List[int] = [-2, -1, 0, 1]
 def filter_ball_detections(
     frame_detections: List[List],
     init_ball_pos: Tuple[float, float],
-    min_ball_travel_dist: float,
-    max_ball_travel_dist: float,
+    *,
+    min_ball_travel_dist: float = 5,
+    max_ball_travel_dist: float = 130,
+    min_det_area: float = 2.0,
+    max_det_area: float = 65.0,
 ) -> List[List]:
     filtered_dets = []
-    for i in range(len(frame_detections)):
 
+    def get_frame_detections_com(frame_num: int) -> Tuple[float, float]:
+        """com = Center of Mass"""
+        prev_frame_accepted_dets_x = [x for x, _, _ in filtered_dets[frame_num]]
+        prev_frame_accepted_dets_y = [y for _, y, _ in filtered_dets[frame_num]]
+        com_x = sum(prev_frame_accepted_dets_x) / len(prev_frame_accepted_dets_x)
+        com_y = sum(prev_frame_accepted_dets_y) / len(prev_frame_accepted_dets_y)
+
+        return com_x, com_y
+
+    for i in range(len(frame_detections)):
+        print(f"Frame #{i}", "-" * 40)
         if len(filtered_dets) > 0:
-            print(f"Frame #{i} filtered dets:")
+            print(f"Accumulated filtered dets:")
             for d in filtered_dets:
                 if len(d) > 1:
+                    print(" " * 8, f"{len(d)} dets below:")
                     for d_ in d:
                         print(" " * 8, d_)
                 else:
@@ -46,10 +65,8 @@ def filter_ball_detections(
         dets = frame_detections[i]
 
         # Filter detections base on their size, i.e. filter out the player detections and noise
-        dets = [(x, y, z) for x, y, z in dets if 1.0 < z < 50.0]
+        dets = [(x, y, z) for x, y, z in dets if min_det_area < z < max_det_area]
 
-        print(f"Frame #{i}", "-" * 40)
-        print(f">> Dets: \n{dets}")
         print(f">> Num dets filtered by size = {len(frame_detections[i]) - len(dets)}")
         frame_num = f"{i}".zfill(5)
         frame_path = (
@@ -77,7 +94,10 @@ def filter_ball_detections(
                         < max_ball_travel_dist
                     )
 
-                    if in_acceptable_range_of_motion and curr_frame_det not in filtered_dets[i - 1]:
+                    if (
+                        in_acceptable_range_of_motion
+                        and curr_frame_det not in filtered_dets[i - 1]
+                    ):
                         cv.circle(frame, (curr_x, curr_y), 10, (0, 255, 0))
                         velocity_constrained_dets.append(curr_frame_det)
                         # print(f">> Added {curr_frame_det}")
@@ -86,17 +106,11 @@ def filter_ball_detections(
             if len(velocity_constrained_dets) == 0:
                 # If no detections satisfy the velocity constraint, add the detection closest to the center of mass of
                 # the previous frame's acceptable detections
-                # print(
-                #     "[i] No dets added, added det closest to center of mass (com) of prev acceptable dets."
-                # )
-                prev_frame_accepted_dets_x = [x for x, _, _ in filtered_dets[i - 1]]
-                prev_frame_accepted_dets_y = [y for _, y, _ in filtered_dets[i - 1]]
-                com_x = sum(prev_frame_accepted_dets_x) // len(
-                    prev_frame_accepted_dets_x
+                print(
+                    "[i] No dets added, added det closest to center of mass (com) of prev acceptable dets."
                 )
-                com_y = sum(prev_frame_accepted_dets_y) // len(
-                    prev_frame_accepted_dets_y
-                )
+
+                com_x, com_y = get_frame_detections_com(frame_num=i - 1)
 
                 dets_dist_to_com = [
                     math.sqrt(((x - com_x) ** 2) + ((y - com_y) ** 2))
@@ -108,7 +122,7 @@ def filter_ball_detections(
                 # print(f">> Added {closest_det}")
 
                 frame_ = frame.copy()
-                cv.circle(frame_, (com_x, com_y), 5, (0, 0, 255), -1)
+                cv.circle(frame_, (int(com_x), int(com_y)), 5, (0, 0, 255), -1)
                 cv.circle(frame_, (closest_det[0], closest_det[1]), 5, (0, 255, 0))
                 # cv.imshow(f"Frame #{i} - Center of mass & closest det to com", frame_)
                 cv.waitKey(0)
@@ -158,7 +172,7 @@ if __name__ == "__main__":
         # Sun simulation and export state and object texture data to POV-Ray format
         players_x: List[int] = sample(START_X_POS, 2)
         players_z: List[int] = sample(START_Z_POS, 2)
-        sim = Simulation(
+        sim = MatchSimulator(
             sim_id=SIM_ID,
             root=ROOT_DIR_PATH,
             step_sz=0.005,
@@ -187,7 +201,7 @@ if __name__ == "__main__":
     video_file = ROOT_DIR_PATH / "videos" / f"sim_{SIM_ID}.mp4"
     if not video_file.exists():
         # Generate video from images rendered by POV Ray of
-        vid_gen = SimVideoGen(root_dir=ROOT_DIR_PATH)
+        vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
         vid_gen.convert_frames_to_vid(SIM_ID, DESIRED_FPS)
 
     # Generate candidate ball detections in each frame
@@ -232,7 +246,67 @@ if __name__ == "__main__":
     print(f"Initial ball position set to {click_store.click_pos()}")
 
     # Filter detections based on initial ball position, size and maximum distance the ball could potentially travel
-    initial_ball_pos = click_store.click_pos()
-    filtered_ball_candidates = filter_ball_detections(
-        all_detections, initial_ball_pos, 2.0, 130.0
+    # first_frame_ball_pos = click_store.click_pos()
+    # filtered_ball_candidates = filter_ball_detections(
+    #     all_detections, first_frame_ball_pos
+    # )
+
+    # Temporary solution until KF is used to filter candidate detections:
+    # Arbitrarily select first detection in frame detections if more than one detection present.
+    # This is in order to get one detection per frame to form the measurements for the KF.
+    # measurements = np.array([detection[0] for detection in filtered_ball_candidates])
+    # print(f"Measurement shape={measurements.shape}")
+
+    # ---------------------------------------------- #
+    # Candidate filtering is fragile so to demo tracking and trajectory-interpretation,
+    # use true ball positions with added noise
+    # ToDo: Either add another check for no candidates and use CoM again or reduce pre-processing stringency
+    # ---------------------------------------------- #
+
+    # Get true ball positions (output at time of simulation data exporting)
+    BALL_POS_TRUE = ROOT_DIR_PATH / "ball_pos" / f"sim_{SIM_ID}.csv"
+    ball_pos_WC = pd.DataFrame(pd.read_csv(BALL_POS_TRUE), columns=["x", "y", "z"])
+    ball_pos_blurred_WC = ball_pos_WC.iloc[
+        N_FRAMES_TO_AVERAGE::N_FRAMES_TO_AVERAGE, :
+    ].reset_index(drop=True)
+
+    x = ball_pos_blurred_WC["x"]
+    y = ball_pos_blurred_WC["y"]
+    z = ball_pos_blurred_WC["z"]
+
+    rng = np.random.default_rng(111)
+
+    measurements = np.c_[x, y, z]
+    noisy_measurements = measurements + rng.normal(
+        0, 0.02, size=(measurements.shape[0], 3)
     )
+
+    # Track ball over time using Kalman filter and give probabilistic interpretation of trajectory
+    n_variables = 3
+    n_measurement_vals = measurements[0].shape[0]
+    mu_p = np.zeros((n_variables, 1))
+    mu_m = np.zeros((n_measurement_vals, 1))
+    psi = np.identity(n_variables)
+    phi = np.eye(
+        n_measurement_vals, n_variables
+    )  # Temporary, should relate data to state e.g. through a projection matrix
+    # sigma_p = np.ones((n_variables, n_variables))
+    # sigma_m = np.ones((n_variables, n_variables))
+    sigma_p = np.identity(n_variables) * 3
+    sigma_m = np.identity(n_variables) * 4
+
+    kf = KalmanFilter(
+        n_variables=n_variables,
+        measurements=noisy_measurements,
+        sigma_m=sigma_m,
+        sigma_p=sigma_p,
+        phi=phi,
+        psi=psi,
+        mu_m=mu_m,
+        mu_p=mu_p,
+    )
+
+    ti = TrajectoryInterpreter(
+        kalman_filter=kf, n_dim_samples=[10, 10, 10], n_std_devs_to_sample=1
+    )
+    ti.interpret_trajectory(visualise=True, save=False)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_umpire import SimVideoGen
+from ai_umpire import VideoGenerator
 
 SIM_ID = 5
 ROOT_DIR = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -15,8 +15,8 @@ SIM_BLURRED_FRAMES_PATH = ROOT_DIR / "blurred_frames" / f"sim_{SIM_ID}_blurred"
 
 
 @pytest.fixture
-def data_gen_instance() -> SimVideoGen:
-    data_gen = SimVideoGen(root_dir=ROOT_DIR)
+def data_gen_instance() -> VideoGenerator:
+    data_gen = VideoGenerator(root_dir=ROOT_DIR)
     yield data_gen
 
     # Teardown
