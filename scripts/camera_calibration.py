@@ -62,7 +62,8 @@ if __name__ == "__main__":
     first_frame = frames[0].copy()
     first_frame_grey = np.mean(first_frame, -1)
 
-    # Manually initialise initial ball position
+    # Obtain the coordinates of the 4 corners of the front wall which will be used to derive the camera projection
+    # matrix
     cv.namedWindow("First Frame")
     coords_store = FourCoordsStore()
     cv.setMouseCallback("First Frame", coords_store.img_clicked)
@@ -99,7 +100,7 @@ if __name__ == "__main__":
     )
 
     # Approximate camera matrix
-    # ToDo: Approximation of cam matrix isn't perfect, resulting it slightly-off projection matrix
+    # ToDo: Maybe aspect ratio problem here or in solvePnP, might also be some distortion
     camera_matrix = cv.initCameraMatrix2D(
         [front_wall_world_coords], [front_wall_image_coords], first_frame_grey.shape
     )
@@ -120,15 +121,25 @@ if __name__ == "__main__":
     tot_error = 0
     total_points = 0
     for i in range(front_wall_world_coords.shape[0]):
-        reprojected_points, _ = cv.projectPoints(front_wall_world_coords[i], rotation_vector, translation_vector, camera_matrix, dist_coeffs)
+        reprojected_points, _ = cv.projectPoints(
+            front_wall_world_coords[i],
+            rotation_vector,
+            translation_vector,
+            camera_matrix,
+            dist_coeffs,
+        )
         reprojected_points = reprojected_points.reshape(-1, 2)
-        tot_error += np.sum(np.abs(front_wall_image_coords[i] - reprojected_points) ** 2)
+        tot_error += np.sum(
+            np.abs(front_wall_image_coords[i] - reprojected_points) ** 2
+        )
         total_points += len(front_wall_world_coords[i])
     mean_error = np.sqrt(tot_error / total_points)
     print("Mean reprojection error: ", mean_error)
 
     # Calculate projection matrix, P = [cameraMatrix] . [rotationMatrix | translationVector]
-    rot_mtx, _ = cv.Rodrigues(rotation_vector)  # Convert rotation from vector notation to matrix
+    rot_mtx, _ = cv.Rodrigues(
+        rotation_vector
+    )  # Convert rotation from vector notation to matrix
     projection_matrix = camera_matrix @ np.c_[rot_mtx, translation_vector]
 
     for i in range(len(ball_pos_blurred_WC)):
@@ -152,15 +163,21 @@ if __name__ == "__main__":
             img_dims,
         )
 
-        ball_pos_to_convert_homog = np.append(np.reshape(ball_pos_to_convert, (3, 1)), 1)
+        ball_pos_to_convert_homog = np.append(
+            np.reshape(ball_pos_to_convert, (3, 1)), 1
+        )
         pos_ic_proj_mtx_homog = projection_matrix @ ball_pos_to_convert_homog
-        pos_ic_proj_mtx = [pos_ic_proj_mtx_homog[0] / pos_ic_proj_mtx_homog[-1], pos_ic_proj_mtx_homog[1] / pos_ic_proj_mtx_homog[-1]]
+        pos_ic_proj_mtx = [
+            pos_ic_proj_mtx_homog[0] / pos_ic_proj_mtx_homog[-1],
+            pos_ic_proj_mtx_homog[1] / pos_ic_proj_mtx_homog[-1],
+        ]
 
         print(f"IC conversion: POV Matrix        = {[ball_x_ic, ball_y_ic]}")
         print(f"IC conversion: Projection Matrix = {pos_ic_proj_mtx}")
 
         error = math.sqrt(
-            ((ball_x_ic - pos_ic_proj_mtx[0]) ** 2) + ((ball_y_ic - pos_ic_proj_mtx[1]) ** 2)
+            ((ball_x_ic - pos_ic_proj_mtx[0]) ** 2)
+            + ((ball_y_ic - pos_ic_proj_mtx[1]) ** 2)
         )
         print(f"Projection matrix error (Euclid distance to true) = {error:.2f}")
 
@@ -173,7 +190,9 @@ if __name__ == "__main__":
             s=130,
             alpha=0.6,
         )
-        plt.scatter(ball_x_ic, ball_y_ic, label="POV Mtx.", marker="s", s=130, alpha=0.6)
+        plt.scatter(
+            ball_x_ic, ball_y_ic, label="POV Mtx.", marker="s", s=130, alpha=0.6
+        )
 
         plt.legend()
         plt.tight_layout()

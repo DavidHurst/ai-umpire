@@ -194,7 +194,7 @@ class MatchSimulator:
                     self._player2.SetPos_dt(random.choice(random_moves))
         if visualise:
             logging.info("Visualising simulation.")
-            contact_reporter.reset()
+            # contact_reporter.reset()
             # Visualise system with Irrlicht app
             vis_app = chronoirr.ChIrrApp(
                 self._sys, "Ball Visualisation", chronoirr.dimension2du(1200, 800)
@@ -222,7 +222,7 @@ class MatchSimulator:
                 vis_app.DoStep()
                 vis_app.EndScene()
 
-                self._sys.GetContactContainer().ReportAllContacts(contact_reporter)
+                # self._sys.GetContactContainer().ReportAllContacts(contact_reporter)
 
                 # Emulate random player movement
                 if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):

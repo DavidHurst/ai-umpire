@@ -239,3 +239,45 @@ def extract_frames_from_vid(
     v_cap.release()
     logging.info("Frames extracted successfully.")
     return np.array(frames)
+
+
+def calibrate_camera(
+    world_coords: np.ndarray, image_coords: np.ndarray, image_size: Tuple[int, int]
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Returns the components of the camera matrix.
+
+    :param image_size: The dimensions of the image used to approximate the camera parameters
+    :param image_coords: 4 known image coordinates (2D) that correspond the 4 provided world coordinates
+    :param world_coords: 4 known world coordinates (3D) that correspond the 4 provided image coordinates
+    :return: Returns the rotation matrix, camera intrinsics matrix and translation vector as a three-tuple
+    """
+    if world_coords.shape[0] != 4 or image_coords.shape[0] != 4:
+        raise ValueError(
+            "You must provide 4 points in image coordinates and world coordinates each."
+        )
+    if image_coords.shape[1] != 2:
+        raise ValueError("Image coordinates must be 2D, matrix shape should be (4,2).")
+    if world_coords.shape[1] != 3:
+        raise ValueError("World coordinates must be 3D, matrix shape should be (4,3).")
+
+    # Approximate camera matrix
+    camera_intrinsics_mtx: np.ndarray = cv.initCameraMatrix2D([world_coords], [image_coords], image_size)
+
+    dist_coeffs = np.zeros((4, 1))  # Minimal/no distortion so can pass as null
+
+    # Estimate camera extrinsic
+    _, rotation_vector, t_vec = cv.solvePnP(
+        world_coords,
+        image_coords,
+        camera_intrinsics_mtx,
+        dist_coeffs,
+        flags=0,
+    )
+
+    # Convert rotation from vector notation to matrix using Rodrigues' method
+    rot_mtx, _ = cv.Rodrigues(
+        rotation_vector
+    )
+
+    return camera_intrinsics_mtx, rot_mtx, t_vec
