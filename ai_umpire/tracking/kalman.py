@@ -11,6 +11,7 @@ from ai_umpire.util import multivariate_norm_pdf
 class KalmanFilter:
     def __init__(
         self,
+        init_mu: np.ndarray = None,
         *,
         n_variables: int,
         measurements: np.ndarray,
@@ -42,8 +43,12 @@ class KalmanFilter:
         self._sigma_m: np.ndarray = sigma_m.copy()  # Covariance of measurement model
 
         # Initialise mean and covariance
-        self.mu = np.zeros_like(self._mu_p)
-        self.cov = np.identity(self.mu.shape[0]) * 500
+        if init_mu is None:
+            self.mu = np.zeros_like(self._mu_p)
+            self.cov = np.identity(self.mu.shape[0]) * 500
+        else:
+            self.mu = init_mu
+            self.cov = np.identity(self.mu.shape[0]) * 50  # We can be more confident, assuming init mu is good
 
         # print("Init".center(40, "-"))
         # print("mu_p:\n", self._mu_p)

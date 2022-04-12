@@ -89,6 +89,7 @@ def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
 def wc_to_ic(
     pos_x_wc: float, pos_y_wc: float, pos_z_wc: float, img_dims: List[int]
 ) -> Tuple[int, int]:
+    """Only works for sim id = 5, will not generalise to real data"""
     homog_ball_wc: np.ndarray = np.reshape(
         np.array([pos_x_wc, pos_y_wc, pos_z_wc, 1]), (1, 4)
     )

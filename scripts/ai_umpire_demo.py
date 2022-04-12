@@ -32,7 +32,7 @@ SIM_STEP_SIZE: float = 0.005
 N_RENDERED_IMAGES: int = int(SIM_LENGTH / SIM_STEP_SIZE)
 DESIRED_FPS: int = 50
 N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
-IMG_DIMS: List[int] = [1024, 768]
+# IMG_DIMS: List[int] = [1024, 768]
 START_X_POS: List[int] = [-2, -1, 0, 1]
 START_Z_POS: List[int] = [-2, -1, 0, 1]
 FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     # ---------------------------------------------- #
 
     # If no video has been generated for this sim id, generate video
-    video_file = ROOT_DIR_PATH / "videos" / f"sim_{SIM_ID}.mp4"
+    video_file = ROOT_DIR_PATH / "videos" / "yt_vid_0.mp4"  # f"sim_{SIM_ID}.mp4"
     if not video_file.exists():
         # Generate video from images rendered by POV Ray of
         vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
@@ -352,24 +352,22 @@ if __name__ == "__main__":
     y = ball_pos_frames_WC["y"]
     z = ball_pos_frames_WC["z"]
 
+    # Try on sim 5 and compare true image coords (get using pov camera conversion) to P^-1 conversion
+
     # Convert measurements from image coordinates to world coordinates for KF
+    cam_x, cam_y = cam_intrinsics[0, -1], cam_intrinsics[1, -1]
     measurements_WC = []
     for i, m in enumerate(measurements):
-        # print(f"Measurement #{i}".ljust(40, "-"))
+        print(f"Measurement #{i}".ljust(40, "-"))
         # Calculate the point to line transformation, given by:
         # w . [rot_mtx.T] [cam_intrinsics^-1] [x, y, 1].T - [rot_mtx^-1] [t_vec]
-        w = 1  # m[-1]  # Typical to use 1 or the distance from the camera to the point, our z surrogate in this case
+        w = 1  # Typical to use 1 or the distance from the camera to the point, our z surrogate in this case
         xy_homog = np.reshape(np.append(m[:-1], 1), (3, 1))
         m_WC = w * rot_mtx.T @ cam_intrinsics_inv @ xy_homog - rot_mtx_inv @ t_vec
 
-        # Invert sign of x and y, seems to be inverted for some reason
-        m_WC[0] = -m_WC[0]
-        m_WC[1] = -m_WC[1]
+        # ToDo: Z needs to be normalised to court depth range
 
-        # Z needs to be normalised to court depth range, scale by 0.1 for now
-        m_WC[2] = m_WC[2] * 0.1
-
-        measurements_WC.append([m_WC[0], m_WC[1], m_WC[2]])
+        measurements_WC.append([m_WC[0].item(), m_WC[1].item(), m[2]])
         # print(f"In IC: shape={m.shape} \n{m}")
         # print(f"In WC: shape={m_WC.shape} \n{m_WC}")
         # print(f"True WC: \n{[x[i], y[i], z[i]]}")
@@ -385,8 +383,14 @@ if __name__ == "__main__":
     #     0, 0.02, size=(measurements.shape[0], 3)
     # )
 
+    # Convert manually selected ball position to world coordinates so we can initialise KF with it
+    init_ball_pos = click_store.click_pos()
+    init_ball_pos_homog = np.reshape(np.append(init_ball_pos, 1), (3, 1))
+    init_mu_WC = 1 * rot_mtx.T @ cam_intrinsics_inv @ init_ball_pos_homog - rot_mtx_inv @ t_vec
+    init_mu_WC[-1] = 0
+    print(f"Init mu: {init_mu_WC}")
 
-    # Track ball over time using Kalman filter and give probabilistic interpretation of trajectory
+    # Kalman filter will track ball over time and smooth noise in the measurements
     n_variables = 3
     n_measurement_vals = measurements_WC[0].shape[0]
     mu_p = np.zeros((n_variables, 1))
@@ -401,6 +405,7 @@ if __name__ == "__main__":
     sigma_m = np.identity(n_variables) * 4
 
     kf = KalmanFilter(
+        init_mu=init_mu_WC,
         n_variables=n_variables,
         measurements=measurements_WC,
         sigma_m=sigma_m,
@@ -411,6 +416,8 @@ if __name__ == "__main__":
         mu_p=mu_p,
     )
 
+    # Using Kalman filter, give probabilistic interpretation of trajectory by sampling points around predicted true ball
+    # position and calculating whether they went out of court or syated in
     ti = TrajectoryInterpreter(
         kalman_filter=kf, n_dim_samples=[10, 10, 10], n_std_devs_to_sample=1
     )
