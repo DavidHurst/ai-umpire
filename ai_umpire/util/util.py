@@ -228,10 +228,9 @@ def extract_frames_from_vid(
 
     pbar: tqdm = tqdm(desc="Extracting frames", disable=disable_progbar)
     while v_cap.isOpened():
-        ret, frame = v_cap.read()
+        read_success, frame = v_cap.read()
 
-        # If frame is read correctly ret is True
-        if ret:
+        if read_success:
             frames.append(frame)
             pbar.update(1)
         else:
