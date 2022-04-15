@@ -172,21 +172,21 @@ def apply_morph_op(
         logging.exception(e)
         raise e
 
-    eroded_frames: List[np.ndarray] = []
+    morph_op_frames: List[np.ndarray] = []
     for i in tqdm(
         range(frames.shape[0]),
         desc=f"Applying morph. op. ({morph_op})",
         disable=disable_progbar,
     ):
-        eroded_frame = cv.morphologyEx(
+        morph_op_frame = cv.morphologyEx(
             src=frames[i],
             op=morph_ops[morph_op],
             kernel=cv.getStructuringElement(struc_el, kernel_shape),
             iterations=n_iter,
         )
-        eroded_frames.append(eroded_frame)
+        morph_op_frames.append(morph_op_frame)
 
-    return np.array(eroded_frames)
+    return np.array(morph_op_frames)
 
 
 def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.ndarray:

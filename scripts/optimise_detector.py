@@ -29,7 +29,7 @@ dist_penalty = 1000
 z_surrogate_penalty = 250
 
 
-def eval_contour_detector(
+def eval_detector(
     morph_iters: int,
     morph_op_SE_shape: Tuple,
     blur_kernel_size: Tuple,
@@ -191,15 +191,15 @@ if __name__ == "__main__":
     # Perform random search of hyperparameters
     rng = np.random.default_rng()
 
-    morph_iters_set_set = list(rng.integers(10, 55, 5))
+    morph_iters_set_set = list(rng.integers(1, 5, 4))
 
-    sizes = rng.integers(1, 5, 3)
+    sizes = rng.integers(10, 30, 4)
     morph_op_SE_shape_set = list(zip(sizes, sizes))
 
     sizes = [random.randrange(11, 51, 10) for _ in range(3)]
     blur_kernel_size_set = list(zip(sizes, sizes))
 
-    blur_strength_set = list(rng.integers(3, 18, 3))
+    blur_strength_set = list(rng.integers(2, 15, 3))
 
     binarize_thresh_low_set = [random.randrange(100, 150, 10) for _ in range(3)]
 
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         "closest_dets_corr": float("-inf"),
     }
     objective_scaling_values = np.array([0.1, 100])
-    objective_weights = np.array([1, 0.8])
+    objective_weights = np.array([1, 0.9])
 
     # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
     scalarised_objective = float("-inf")
@@ -254,7 +254,7 @@ if __name__ == "__main__":
                         )
 
                         # Run and score detector
-                        mean_dist, _, z_corr = eval_contour_detector(
+                        mean_dist, _, z_corr = eval_detector(
                             morph_iters=morph_iters,
                             morph_op_SE_shape=SE_shape,
                             blur_kernel_size=kernel_sz,
@@ -264,13 +264,13 @@ if __name__ == "__main__":
                         )
 
                         curr_scalarised_objectives = np.sum(
-                            np.array([-mean_dist, abs(z_corr)])
+                            np.array([-mean_dist, z_corr])
                             * objective_scaling_values
                             * objective_weights
                         )
                         print(
                             "Metrics Scaled + Weighted".ljust(25, " "),
-                            np.array([-mean_dist, abs(z_corr)])
+                            np.array([-mean_dist, z_corr])
                             * objective_scaling_values
                             * objective_weights,
                         )
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     with open("optimal_model_params.txt", "w") as f:
         f.write(str(optimal_model_params))
 
-    _, _, _ = eval_contour_detector(
+    _, _, _ = eval_detector(
         morph_iters=optimal_model_params["morph_iters"],
         morph_op_SE_shape=optimal_model_params["morph_op_SE_shape"],
         blur_kernel_size=optimal_model_params["blur_kernel_size"],

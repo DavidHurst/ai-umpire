@@ -13,14 +13,14 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Video file for sim ID {sim_id}not found.")
 
     detector = Detector(root_dir_path)
-    frame_detections = detector.get_ball_detections(
+    all_detections = detector.get_ball_detections(
         vid_fname=video_fname,
         sim_id=sim_id,
         morph_op="close",
-        morph_op_iters=11,
-        morph_op_se_shape=(2, 2),
-        blur_kernel_size=(31, 31),
+        morph_op_iters=5,
+        morph_op_se_shape=(14, 14),
+        blur_kernel_size=(41, 41),
         blur_sigma=3,
-        binary_thresh=130,
+        binary_thresh=120,
         struc_el_shape=cv.MORPH_RECT,
     )

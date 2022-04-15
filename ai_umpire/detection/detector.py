@@ -222,7 +222,7 @@ class Detector:
         ):
             # fig, axes = plt.subplots(1, 3, figsize=(15, 7))
             contours, hierarchy = cv.findContours(
-                morph_op_frames[i], cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE
+                morph_op_frames[i], cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
             )
             if contours:
                 estimated_pos = []
@@ -258,19 +258,19 @@ class Detector:
                 # cv.imshow(f"Frame #{i} - Differenced", fg_seg_frames[i])
                 # cv.imshow(f"Frame #{i} Features", morph_op_frames[i])
                 # cv.waitKey(0)
-                # fig, ax = plt.subplots(figsize=(14, 7))
-                # ax.imshow(
-                #     cv.cvtColor(display_im, cv.COLOR_BGR2RGB)
-                # )  # , cmap="gray", vmin=0, vmax=255)
+                # fig, axes = plt.subplots(1,4,figsize=(14, 7))
                 # axes[0].imshow(cv.cvtColor(fg_seg_frames[i], cv.COLOR_BGR2RGB))  # , cmap="gray", vmin=0, vmax=255)
                 # axes[1].imshow(binary_frames[i], cmap="gray", vmin=0, vmax=1)
                 # axes[2].imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
-                # titles = ["Diff", "Binary", "Morph. Close"]
+                # axes[3].imshow(
+                #     cv.cvtColor(display_im, cv.COLOR_BGR2RGB)
+                # )
+                # titles = ["Diff", "Binary", "Morph. Close", "Contours"]
                 # for k, ax in enumerate(axes):
                 #     ax.axis("off")
                 #     ax.set_title(titles[k])
                 # plt.tight_layout()
-                # plt.savefig(f"detection{str(i).zfill(2)}.png")
+                # # plt.savefig(f"detection{str(i).zfill(2)}.png")
                 # plt.show()
             else:
                 # No detections, worst values, position miles away from anywhere on the screen
