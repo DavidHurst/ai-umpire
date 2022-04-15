@@ -1,1 +1,1 @@
-{'opening_iters': 9, 'morph_op_SE_shape': (8, 8), 'blur_kernel_size': (31, 31), 'blur_strength': 8, 'binarize_thresh_low': 200}
+{'morph_iters': 11, 'morph_op_SE_shape': (2, 2), 'blur_kernel_size': (31, 31), 'blur_strength': 3, 'binarize_thresh_low': 130}

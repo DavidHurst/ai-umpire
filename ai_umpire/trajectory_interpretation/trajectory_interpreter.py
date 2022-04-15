@@ -142,11 +142,17 @@ class TrajectoryInterpreter:
             plt.show()
 
     def interpret_trajectory(
-        self, *, visualise: bool = False, save: bool = False, show_sample_points: bool = False
+        self,
+        *,
+        visualise: bool = False,
+        save: bool = False,
+        show_sample_points: bool = False,
     ) -> Tuple[str, float]:
         """Returns probability of trajectory being out and which out-area it most likely hit"""
         for i in range(self._n_measurements):
-            p, bb = self.interpret_next_measurement(visualise=visualise, save=save, show_sample_points=show_sample_points)
+            p, bb = self.interpret_next_measurement(
+                visualise=visualise, save=save, show_sample_points=show_sample_points
+            )
             print(
                 f"Measurement #{i}, most likely collision with {bb} with probability {p:.4f}."
             )
@@ -154,7 +160,11 @@ class TrajectoryInterpreter:
         print(self.bb_collision_probs)
 
     def interpret_next_measurement(
-        self, *, visualise: bool = False, save: bool = False, show_sample_points: bool = False
+        self,
+        *,
+        visualise: bool = False,
+        save: bool = False,
+        show_sample_points: bool = False,
     ) -> Tuple[float, str]:
         """Return the probability of a measurement being out of court"""
         mu, cov = self._kf.step()  # KF inference

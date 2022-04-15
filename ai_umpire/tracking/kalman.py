@@ -48,7 +48,9 @@ class KalmanFilter:
             self.cov = np.identity(self.mu.shape[0]) * 500
         else:
             self.mu = init_mu
-            self.cov = np.identity(self.mu.shape[0]) * 50  # We can be more confident, assuming init mu is good
+            self.cov = (
+                np.identity(self.mu.shape[0]) * 50
+            )  # We can be more confident, assuming init mu is good
 
         # print("Init".center(40, "-"))
         # print("mu_p:\n", self._mu_p)

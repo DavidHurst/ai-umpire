@@ -4,7 +4,6 @@ from typing import List, Tuple, Dict
 
 import cv2 as cv
 import numpy as np
-from matplotlib import pyplot as plt
 from numpy import pi
 from numpy.linalg import inv, det
 from tqdm import tqdm
@@ -19,6 +18,7 @@ __all__ = [
     "multivariate_norm_pdf",
     "gen_grid_of_points",
     "CAM_EXTRINSICS_HOMOG",
+    "calibrate_camera"
 ]
 
 CAM_EXTRINSICS_HOMOG: np.ndarray = np.array(
@@ -131,7 +131,7 @@ def binarize_frames(
             normalised_greyscale_frame,
             thresh_low,
             thresh_high,
-            cv.THRESH_BINARY + cv.THRESH_OTSU,
+            cv.THRESH_BINARY,
         )
         binary_frames.append(binary_frame)
 
@@ -263,7 +263,9 @@ def calibrate_camera(
         raise ValueError("World coordinates must be 3D, matrix shape should be (4,3).")
 
     # Approximate camera matrix
-    camera_intrinsics_mtx: np.ndarray = cv.initCameraMatrix2D([world_coords], [image_coords], image_size)
+    camera_intrinsics_mtx: np.ndarray = cv.initCameraMatrix2D(
+        [world_coords], [image_coords], image_size
+    )
 
     dist_coeffs = np.zeros((4, 1))  # Minimal/no distortion so can pass as null
 
@@ -277,8 +279,6 @@ def calibrate_camera(
     )
 
     # Convert rotation from vector notation to matrix using Rodrigues' method
-    rot_mtx, _ = cv.Rodrigues(
-        rotation_vector
-    )
+    rot_mtx, _ = cv.Rodrigues(rotation_vector)
 
     return camera_intrinsics_mtx, rot_mtx, t_vec

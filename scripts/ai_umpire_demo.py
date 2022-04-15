@@ -22,17 +22,17 @@ from ai_umpire.util import (
     HALF_COURT_WIDTH,
     HALF_COURT_LENGTH,
     WALL_HEIGHT,
+    calibrate_camera,
 )
-from ai_umpire.util.util import calibrate_camera
+
 
 ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
-SIM_ID: int = 6
+SIM_ID: int = 5
 SIM_LENGTH: float = 2.0
 SIM_STEP_SIZE: float = 0.005
 N_RENDERED_IMAGES: int = int(SIM_LENGTH / SIM_STEP_SIZE)
 DESIRED_FPS: int = 50
 N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
-# IMG_DIMS: List[int] = [1024, 768]
 START_X_POS: List[int] = [-2, -1, 0, 1]
 START_Z_POS: List[int] = [-2, -1, 0, 1]
 FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
@@ -44,130 +44,6 @@ FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
     ],
     dtype="float32",
 )
-
-
-# ToDo: Incorporate this function into ball detector class
-def filter_ball_detections(
-    frame_detections: List[List],
-    init_ball_pos: Tuple[float, float],
-    *,
-    min_ball_travel_dist: float = 5,
-    max_ball_travel_dist: float = 130,
-    min_det_area: float = 2.0,
-    max_det_area: float = 65.0,
-) -> List[List]:
-    filtered_dets = []
-
-    def get_frame_detections_com(frame_num: int) -> Tuple[float, float]:
-        """com = Center of Mass"""
-        prev_frame_accepted_dets_x = [x for x, _, _ in filtered_dets[frame_num]]
-        prev_frame_accepted_dets_y = [y for _, y, _ in filtered_dets[frame_num]]
-        com_x = sum(prev_frame_accepted_dets_x) / len(prev_frame_accepted_dets_x)
-        com_y = sum(prev_frame_accepted_dets_y) / len(prev_frame_accepted_dets_y)
-
-        return com_x, com_y
-
-    for i in range(
-        25
-    ):  # Breaks past frame 25 so will stop there for now, future: len(frame_detections)):
-        print(f"Frame #{i}", "-" * 40)
-        if len(filtered_dets) > 0:
-            print(f"Accumulated filtered dets:")
-            for d in filtered_dets:
-                if len(d) > 1:
-                    print(" " * 8, f"{len(d)} dets below:")
-                    for d_ in d:
-                        print(" " * 8, d_)
-                else:
-                    print(" " * 4, d)
-        dets = frame_detections[i]
-
-        # Filter detections base on their size, i.e. filter out the player detections and noise
-        dets = [(x, y, z) for x, y, z in dets if min_det_area < z < max_det_area]
-
-        print(f">> Num dets filtered by size = {len(frame_detections[i]) - len(dets)}")
-        # frame_num = f"{i}".zfill(5)
-        # frame_path = (
-        #     ROOT_DIR_PATH
-        #     / "blurred_frames"
-        #     / f"sim_{SIM_ID}_blurred"
-        #     / f"frame{frame_num}.png"
-        # )
-        # frame = cv.imread(str(frame_path), 1)
-
-        if i > 0:
-            velocity_constrained_dets = []
-            for curr_frame_det in dets:
-                for prev_frame_det in filtered_dets[i - 1]:
-
-                    curr_x, curr_y = curr_frame_det[0], curr_frame_det[1]
-                    prev_x, prev_y = prev_frame_det[0], prev_frame_det[1]
-
-                    euclid_dist_between_prev_and_curr_dets = math.sqrt(
-                        ((curr_x - prev_x) ** 2) + ((curr_y - prev_y) ** 2)
-                    )
-                    in_acceptable_range_of_motion = (
-                        min_ball_travel_dist
-                        < euclid_dist_between_prev_and_curr_dets
-                        < max_ball_travel_dist
-                    )
-
-                    if (
-                        in_acceptable_range_of_motion
-                        and curr_frame_det not in filtered_dets[i - 1]
-                    ):
-                        # cv.circle(frame, (curr_x, curr_y), 10, (0, 255, 0))
-                        velocity_constrained_dets.append(curr_frame_det)
-                        # print(f">> Added {curr_frame_det}")
-                    # else:
-                    # cv.circle(frame, (curr_x, curr_y), 10, (0, 0, 255))
-            if len(velocity_constrained_dets) == 0:
-                # If no detections satisfy the velocity constraint, add the detection closest to the center of mass of
-                # the previous frame's acceptable detections
-                print(
-                    "[i] No dets added, added det closest to center of mass (com) of prev acceptable dets."
-                )
-
-                com_x, com_y = get_frame_detections_com(frame_num=i - 1)
-
-                dets_dist_to_com = [
-                    math.sqrt(((x - com_x) ** 2) + ((y - com_y) ** 2))
-                    for x, y, _ in dets
-                ]
-                closest_det = dets[dets_dist_to_com.index(min(dets_dist_to_com))]
-                filtered_dets.append([closest_det])
-
-                # print(f">> Added {closest_det}")
-
-                # frame_ = frame.copy()
-                # cv.circle(frame_, (int(com_x), int(com_y)), 5, (0, 0, 255), -1)
-                # cv.circle(frame_, (closest_det[0], closest_det[1]), 5, (0, 255, 0))
-                # cv.imshow(f"Frame #{i} - Center of mass & closest det to com", frame_)
-                # cv.waitKey(0)
-            else:
-                filtered_dets.append(list(set(velocity_constrained_dets)))
-        else:
-            # Find the closest detection to manually initialised initial ball position
-            dists = [
-                math.sqrt(((x - init_ball_pos[0]) ** 2) + ((y - init_ball_pos[1]) ** 2))
-                for x, y, _ in dets
-            ]
-            closest_det = dets[dists.index(min(dists))]
-
-            # for det in dets:
-            #     if det == closest_det:
-            #         cv.circle(frame, (det[0], det[1]), 10, (0, 255, 0))
-            #     else:
-            #         cv.circle(frame, (det[0], det[1]), 10, (0, 0, 255))
-            print(f">> First frame, adding closest det -> {closest_det}")
-
-            filtered_dets.append([closest_det])
-
-        # cv.imshow(f"Frame #{i}", frame)
-        # cv.waitKey(0)
-
-    return filtered_dets
-
 
 # ToDo: Classes below could easily be one class
 class SinglePosStore:
@@ -198,6 +74,7 @@ class FourCoordsStore:
 
 if __name__ == "__main__":
     random.seed(1234)
+    video_fname = f"sim_{SIM_ID}.mp4"
     # If no POV-Ray data has been generated for this sim id, generate data and render images
     pov_data_file = ROOT_DIR_PATH / "generated_povray" / f"sim_{SIM_ID}_povray"
     if not pov_data_file.exists():
@@ -230,29 +107,14 @@ if __name__ == "__main__":
     # ---------------------------------------------- #
 
     # If no video has been generated for this sim id, generate video
-    video_file = ROOT_DIR_PATH / "videos" / "yt_vid_0.mp4"  # f"sim_{SIM_ID}.mp4"
+    video_file = ROOT_DIR_PATH / "videos" / video_fname
     if not video_file.exists():
         # Generate video from images rendered by POV Ray of
         vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
         vid_gen.convert_frames_to_vid(SIM_ID, DESIRED_FPS)
 
-    # Generate candidate ball detections in each frame
-    detector = Detector(root_dir=ROOT_DIR_PATH)
-    # Parameters obtained through random hyperparameter search
-    all_detections = detector.get_ball_candidates_contour(
-        sim_id=SIM_ID,
-        morph_op="close",
-        morph_op_iters=8,
-        morph_op_SE_shape=(8, 8),
-        blur_kernel_size=(81, 81),
-        blur_sigma_x=4,
-        binary_thresh_low=190,
-        struc_el_shape=cv.MORPH_RECT,
-        disable_progbar=False,
-    )
-
     # Manually initialise the initial ball position, this will be used for detection filtering and Kalman initialisation
-    # Load first frame of video, so we can get 4 points to approximate homography
+    # Load first frame of video, so we can get 4 points to approximate the inverse of the camera matrix
     frames = extract_frames_from_vid(video_file)
     first_frame = frames[0].copy()
     first_frame_grey = np.mean(first_frame, -1)
@@ -276,17 +138,31 @@ if __name__ == "__main__":
 
     print(f"Initial ball position set to {click_store.click_pos()}")
 
-    # Filter detections based on initial ball position, size and maximum distance the ball could potentially travel
+    # Get filtered detections from ball detector
     first_frame_ball_pos = click_store.click_pos()
-    filtered_ball_candidates = filter_ball_detections(
-        all_detections, first_frame_ball_pos
+    detector = Detector(root_dir=ROOT_DIR_PATH)
+    measurements = detector.get_filtered_ball_detections(
+        sim_id=SIM_ID,
+        vid_fname=video_fname,
+        morph_op="close",
+        morph_op_iters=11,
+        morph_op_se_shape=(2, 2),
+        blur_kernel_size=(31, 31),
+        blur_sigma=3,
+        binary_thresh=130,
+        struc_el_shape=cv.MORPH_RECT,
+        disable_progbar=False,
+        init_ball_pos=first_frame_ball_pos,
+        min_ball_travel_dist=5,
+        max_ball_travel_dist=130,
+        min_det_area=1.0,
+        max_det_area=40.0,
     )
+    print(f"Measurements: shape={measurements.shape}, measurements: \n{measurements}")
 
-    # Temporary solution until KF is used to filter candidate detections:
-    # Arbitrarily select first detection in frame detections if more than one detection present.
-    # This is in order to get one detection per frame to form the measurements for the KF.
-    measurements = np.array([detection[0] for detection in filtered_ball_candidates])
-    print(f"Measurements: shape={measurements.shape}, measurements \n{measurements}")
+    plt.imshow(cv.cvtColor(frames[0], cv.COLOR_BGR2RGB))
+    plt.scatter(measurements[:, 0], measurements[:, 1], s=measurements[:, 2] * 2)
+    plt.show()
 
     # ---------------------------------------------- #
     # Candidate filtering is fragile so to demo tracking and trajectory-interpretation,
@@ -346,7 +222,7 @@ if __name__ == "__main__":
     # Get position of ball in frames (different from true pos due to blurring by averaging frames)
     ball_pos_frames_WC = ball_pos_WC.iloc[
         N_FRAMES_TO_AVERAGE::N_FRAMES_TO_AVERAGE, :
-                         ].reset_index(drop=True)
+    ].reset_index(drop=True)
 
     x = ball_pos_frames_WC["x"]
     y = ball_pos_frames_WC["y"]
@@ -386,7 +262,9 @@ if __name__ == "__main__":
     # Convert manually selected ball position to world coordinates so we can initialise KF with it
     init_ball_pos = click_store.click_pos()
     init_ball_pos_homog = np.reshape(np.append(init_ball_pos, 1), (3, 1))
-    init_mu_WC = 1 * rot_mtx.T @ cam_intrinsics_inv @ init_ball_pos_homog - rot_mtx_inv @ t_vec
+    init_mu_WC = (
+        1 * rot_mtx.T @ cam_intrinsics_inv @ init_ball_pos_homog - rot_mtx_inv @ t_vec
+    )
     init_mu_WC[-1] = 0
     print(f"Init mu: {init_mu_WC}")
 

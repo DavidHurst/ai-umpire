@@ -1,10 +1,9 @@
-import json
 import math
 from pathlib import Path
 import random
 from typing import Tuple
 
-import cv2
+import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -18,6 +17,7 @@ sim_blurred_frames_path: Path = (
     root_dir_path / "blurred_frames" / f"sim_{sim_id}_blurred"
 )
 vid_dir: Path = root_dir_path / "videos"
+video_fname = f"sim_{sim_id}.mp4"
 sim_length = 2.0
 sim_step_sz = 0.005
 n_rendered_frames = int(sim_length / sim_step_sz)
@@ -30,7 +30,7 @@ z_surrogate_penalty = 250
 
 
 def eval_contour_detector(
-    opening_iters: int,
+    morph_iters: int,
     morph_op_SE_shape: Tuple,
     blur_kernel_size: Tuple,
     blur_strength: int,
@@ -39,15 +39,16 @@ def eval_contour_detector(
 ) -> Tuple:
     # Generate ball candidates per frame in video
     detector = Detector(root_dir_path)
-    frame_detections = detector.get_ball_candidates_contour(
+    frame_detections = detector.get_ball_detections(
+        vid_fname=video_fname,
         sim_id=sim_id,
         morph_op="close",
-        morph_op_iters=opening_iters,
-        morph_op_SE_shape=morph_op_SE_shape,
+        morph_op_iters=morph_iters,
+        morph_op_se_shape=morph_op_SE_shape,
         blur_kernel_size=blur_kernel_size,
-        blur_sigma_x=blur_strength,
-        binary_thresh_low=binarize_thresh_low,
-        struc_el_shape=cv2.MORPH_RECT,
+        blur_sigma=blur_strength,
+        binary_thresh=binarize_thresh_low,
+        struc_el_shape=cv.MORPH_RECT,
         disable_progbar=True,
     )
 
@@ -86,13 +87,14 @@ def eval_contour_detector(
 
     mean_mean_dist = sum(avg_euclid_dists) / len(avg_euclid_dists)
     mean_min_dist = sum(min_euclid_dists) / len(min_euclid_dists)
+    sqrt_z_surrogate_closest_dets = np.sqrt(np.array(z_surrogate_closest_dets))
 
     # Compute correlation, evaluation of z estimate
     closest_dets_corr = (
         pd.DataFrame(
             {
                 "z": ball_pos_blurred_WC["z"].to_numpy()[:-1],
-                "Best Detection": z_surrogate_closest_dets,
+                "Best Detection": sqrt_z_surrogate_closest_dets,
             }
         )
         .corr()
@@ -120,7 +122,7 @@ def eval_contour_detector(
 
         axes[1].scatter(
             ball_pos_blurred_WC["z"].to_numpy()[:-1],
-            z_surrogate_closest_dets,
+            sqrt_z_surrogate_closest_dets,
             marker="x",
             color="green",
             label=f"z vs. Closest Detection - Corr.={closest_dets_corr:.2f}",
@@ -187,27 +189,22 @@ if __name__ == "__main__":
     #     plt.show()
 
     # Perform random search of hyperparameters
-    # opening_iters_set_set = [6]
-    # morph_op_SE_shape_set = [(8, 8)]
-    # blur_kernel_size_set = [(21, 21), (41, 41), (61, 61)]
-    # blur_strength_set = [7]
-    # binarize_thresh_low_set = [200, 230, 250]
     rng = np.random.default_rng()
 
-    opening_iters_set_set = list(rng.integers(1, 10, 3))
+    morph_iters_set_set = list(rng.integers(10, 55, 5))
 
-    sizes = rng.integers(2, 9, 3)
+    sizes = rng.integers(1, 5, 3)
     morph_op_SE_shape_set = list(zip(sizes, sizes))
 
-    sizes = [random.randrange(31, 91, 10) for _ in range(3)]
+    sizes = [random.randrange(11, 51, 10) for _ in range(3)]
     blur_kernel_size_set = list(zip(sizes, sizes))
 
-    blur_strength_set = list(rng.integers(4, 12, 3))
+    blur_strength_set = list(rng.integers(3, 18, 3))
 
-    binarize_thresh_low_set = [random.randrange(200, 250, 10) for _ in range(3)]
+    binarize_thresh_low_set = [random.randrange(100, 150, 10) for _ in range(3)]
 
     print("Randomly chosen hyperparameter values:")
-    print("Opening iterations: ".ljust(35, " "), opening_iters_set_set)
+    print("Opening iterations: ".ljust(35, " "), morph_iters_set_set)
     print("Morph. op. shape: ".ljust(35, " "), morph_op_SE_shape_set)
     print("Blur kernel size:".ljust(35, " "), blur_kernel_size_set)
     print("Blur strength:".ljust(35, " "), blur_strength_set)
@@ -215,7 +212,7 @@ if __name__ == "__main__":
 
     n_configs = np.prod(
         [
-            len(opening_iters_set_set),
+            len(morph_iters_set_set),
             len(morph_op_SE_shape_set),
             len(blur_kernel_size_set),
             len(blur_strength_set),
@@ -225,7 +222,7 @@ if __name__ == "__main__":
 
     hparam_config = 1
     optimal_model_params = {
-        "opening_iters": 0,
+        "morph_iters": 0,
         "morph_op_SE_shape": (),
         "blur_kernel_size": (),
         "blur_strength": 0,
@@ -240,13 +237,13 @@ if __name__ == "__main__":
 
     # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
     scalarised_objective = float("-inf")
-    for open_iters in opening_iters_set_set:
+    for morph_iters in morph_iters_set_set:
         for SE_shape in morph_op_SE_shape_set:
             for kernel_sz in blur_kernel_size_set:
                 for blur_strength in blur_strength_set:
                     for thresh in binarize_thresh_low_set:
                         param_vals = (
-                            f"open_iters:{open_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, "
+                            f"morph_iters:{morph_iters}, SE_shape:{SE_shape}, kernel_sz:{kernel_sz}, "
                             f"blur_strength:{blur_strength}, thresh:{thresh}"
                         )
                         print(
@@ -258,7 +255,7 @@ if __name__ == "__main__":
 
                         # Run and score detector
                         mean_dist, _, z_corr = eval_contour_detector(
-                            opening_iters=open_iters,
+                            morph_iters=morph_iters,
                             morph_op_SE_shape=SE_shape,
                             blur_kernel_size=kernel_sz,
                             blur_strength=blur_strength,
@@ -286,7 +283,7 @@ if __name__ == "__main__":
                         if curr_scalarised_objectives > scalarised_objective:
                             print(f"[i] New best configuration found.")
                             optimal_model_params = {
-                                "opening_iters": open_iters,
+                                "morph_iters": morph_iters,
                                 "morph_op_SE_shape": SE_shape,
                                 "blur_kernel_size": kernel_sz,
                                 "blur_strength": blur_strength,
@@ -308,7 +305,7 @@ if __name__ == "__main__":
         f.write(str(optimal_model_params))
 
     _, _, _ = eval_contour_detector(
-        opening_iters=optimal_model_params["opening_iters"],
+        morph_iters=optimal_model_params["morph_iters"],
         morph_op_SE_shape=optimal_model_params["morph_op_SE_shape"],
         blur_kernel_size=optimal_model_params["blur_kernel_size"],
         blur_strength=optimal_model_params["blur_strength"],
