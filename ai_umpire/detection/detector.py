@@ -1,4 +1,4 @@
-__all__ = ["Detector"]
+__all__ = ["BallDetector"]
 
 import math
 from pathlib import Path
@@ -18,7 +18,7 @@ from ai_umpire.util import (
 )
 
 
-class Detector:
+class BallDetector:
     def __init__(self, root_dir: Path):
         self._root_dir: Path = root_dir
         self._vid_dir: Path = self._root_dir / "videos"

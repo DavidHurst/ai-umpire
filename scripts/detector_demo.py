@@ -1,6 +1,6 @@
 from pathlib import Path
 import cv2 as cv
-from ai_umpire import Detector
+from ai_umpire import BallDetector
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 sim_id = 5
@@ -12,7 +12,7 @@ if __name__ == "__main__":
     if not (vid_dir / video_fname).exists():
         raise FileNotFoundError(f"Video file for sim ID {sim_id}not found.")
 
-    detector = Detector(root_dir_path)
+    detector = BallDetector(root_dir_path)
     all_detections = detector.get_ball_detections(
         vid_fname=video_fname,
         sim_id=sim_id,

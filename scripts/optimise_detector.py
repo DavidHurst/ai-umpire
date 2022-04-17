@@ -7,7 +7,7 @@ import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from ai_umpire import VideoGenerator, Detector
+from ai_umpire import VideoGenerator, BallDetector
 from ai_umpire.util import wc_to_ic
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -38,7 +38,7 @@ def eval_detector(
     visualise: bool = False,
 ) -> Tuple:
     # Generate ball candidates per frame in video
-    detector = Detector(root_dir_path)
+    detector = BallDetector(root_dir_path)
     frame_detections = detector.get_ball_detections(
         vid_fname=video_fname,
         sim_id=sim_id,

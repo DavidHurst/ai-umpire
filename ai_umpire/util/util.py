@@ -4,6 +4,9 @@ from typing import List, Tuple, Dict
 
 import cv2 as cv
 import numpy as np
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from scipy.spatial import Delaunay
 from numpy import pi
 from numpy.linalg import inv, det
 from tqdm import tqdm
@@ -18,8 +21,19 @@ __all__ = [
     "multivariate_norm_pdf",
     "gen_grid_of_points",
     "CAM_EXTRINSICS_HOMOG",
-    "calibrate_camera"
+    "calibrate_camera",
+    "SinglePosStore",
+    "FourCoordsStore",
+    "plot_bb",
+    "point_bb_collided",
 ]
+
+from ai_umpire.util import (
+    FIELD_BOUNDING_BOXES,
+    HALF_COURT_LENGTH,
+    BB_DEPTH,
+    HALF_COURT_WIDTH,
+)
 
 CAM_EXTRINSICS_HOMOG: np.ndarray = np.array(
     [
@@ -87,13 +101,16 @@ def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
 
 
 def wc_to_ic(
-    pos_x_wc: float, pos_y_wc: float, pos_z_wc: float, img_dims: List[int]
+    pos_wc: np.ndarray, img_dims: List[int], *, m: np.ndarray = CAM_EXTRINSICS_HOMOG_INV
 ) -> Tuple[int, int]:
+    img_dims.reverse()
     """Only works for sim id = 5, will not generalise to real data"""
+    pos_x_wc, pos_y_wc, pos_z_wc = pos_wc[0], pos_wc[1], pos_wc[2]
+
     homog_ball_wc: np.ndarray = np.reshape(
         np.array([pos_x_wc, pos_y_wc, pos_z_wc, 1]), (1, 4)
     )
-    homog_tformed_ball_wc: np.ndarray = homog_ball_wc @ CAM_EXTRINSICS_HOMOG_INV
+    homog_tformed_ball_wc: np.ndarray = homog_ball_wc @ m
     tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[
         :, :-1
     ]  # Convert homogenous to Cartesian
@@ -103,6 +120,7 @@ def wc_to_ic(
             0.5 - (tformed_ball_wc[:, 1] / tformed_ball_wc[:, -1]),
         ]
     )
+
     pos_ic: np.ndarray = np.reshape(img_dims, (2, 1)) * pos_ic_coefs
 
     return pos_ic[0].item(), pos_ic[1].item()
@@ -282,3 +300,116 @@ def calibrate_camera(
     rot_mtx, _ = cv.Rodrigues(rotation_vector)
 
     return camera_intrinsics_mtx, rot_mtx, t_vec
+
+
+def point_bb_collided(point: np.ndarray, bb_name: str) -> bool:
+    if point.shape[0] != 3:
+        raise ValueError("Expecting a 3D point.")
+
+    # For non-cuboid volumes, use Delaunay triangulation to detect if point is in polyhedron
+    bb = FIELD_BOUNDING_BOXES[bb_name]
+    if bb_name.startswith(("left", "right")):
+        poly = bb["verts"]
+        return Delaunay(poly).find_simplex(point) >= 0
+
+    # For cuboid use simple coordinate comparison
+    return (
+        (bb["min_x"] <= point[0].item() <= bb["max_x"])
+        and (bb["min_y"] <= point[1].item() <= bb["max_y"])
+        and (bb["min_z"] <= point[2].item() <= bb["max_z"])
+    )
+
+
+def plot_bb(
+    bb_name: str,
+    ax: plt.axes,
+    *,
+    bb_face_annotation: str = None,
+    show_vertices: bool = False,
+    show_annotation: bool = False,
+) -> None:
+    bb = FIELD_BOUNDING_BOXES[bb_name]
+
+    if bb_name.startswith(("left", "right")):
+        verts = bb["verts"]
+    else:
+        verts = [
+            [x, y, z]
+            for x in [bb["min_x"], bb["max_x"]]
+            for y in [bb["min_y"], bb["max_y"]]
+            for z in [bb["min_z"], bb["max_z"]]
+        ]
+    verts = np.array(verts)
+
+    # Isolate vertices of plane which correspond to the inner face of the wall polyhedron via masking
+    if bb_name.startswith(("front", "tin")):
+        face_verts = verts[~np.any(verts == HALF_COURT_LENGTH + BB_DEPTH, axis=1)]
+        # Swap face corners for non-intersecting plane plotting
+        face_verts[[0, 1]] = face_verts[[1, 0]]
+    elif bb_name.startswith("right"):
+        face_verts = verts[~np.any(verts == HALF_COURT_WIDTH + BB_DEPTH, axis=1)]
+    elif bb_name.startswith("left"):
+        face_verts = verts[~np.any(verts == -HALF_COURT_WIDTH - BB_DEPTH, axis=1)]
+    elif bb_name.startswith("back"):
+        face_verts = verts[~np.any(verts == -HALF_COURT_LENGTH - BB_DEPTH, axis=1)]
+        # Swap face corners for non-intersecting plane plotting
+        face_verts[[0, 1]] = face_verts[[1, 0]]
+    else:  # Back wall case
+        raise ValueError(f"Plotting face for {bb_name} not implemented")
+
+    # Annotate center of bounding boxes inner face
+    if show_annotation:
+        face_center_vert = np.mean(face_verts, axis=0)
+        ax.text(
+            face_center_vert[0],
+            face_center_vert[2],
+            face_center_vert[1],
+            bb_face_annotation,
+            zdir="y",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.7),
+        )
+
+    # Convert vertices to list of lists for Poly3DCollection and swap z and y since no zdir param
+    face_verts = [list(zip(face_verts[:, 0], face_verts[:, 2], face_verts[:, 1]))]
+
+    # Plot volume inner face and vertices
+    ax.add_collection3d(
+        Poly3DCollection(face_verts, color=bb["colour"], alpha=0.3, lw=0.1)
+    )
+    if show_vertices:
+        ax.scatter3D(
+            verts[:, 0],
+            verts[:, 1],
+            verts[:, 2],
+            zdir="y",
+            color=bb["colour"],
+        )
+
+
+# ToDo: Classes below could easily be one class
+class SinglePosStore:
+    def __init__(self, first_frame: np.ndarray):
+        self._frame: np.ndarray = first_frame
+        self._click_pos: Tuple[int, int] = None
+
+    def img_clicked(self, event, x, y, flags, param):
+        if event == cv.EVENT_LBUTTONDBLCLK:
+            cv.circle(self._frame, (x, y), 7, (0, 255, 0))
+            self._click_pos = (x, y)
+
+    def click_pos(self) -> Tuple:
+        return self._click_pos
+
+
+class FourCoordsStore:
+    def __init__(self, first_frame: np.ndarray):
+        self._frame: np.ndarray = first_frame
+        self._coords: List = []
+
+    def img_clicked(self, event, x, y, flags, param):
+        if event == cv.EVENT_LBUTTONDBLCLK:
+            cv.circle(self._frame, (x, y), 7, (255, 0, 0))
+            self._coords.append([x, y])
+
+    def click_pos(self) -> np.ndarray:
+        return np.array(self._coords, dtype="float32")

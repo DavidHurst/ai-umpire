@@ -13,7 +13,7 @@ from typing import List, Tuple
 from ai_umpire import (
     MatchSimulator,
     VideoGenerator,
-    Detector,
+    BallDetector,
     KalmanFilter,
     TrajectoryInterpreter,
 )
@@ -23,6 +23,8 @@ from ai_umpire.util import (
     HALF_COURT_LENGTH,
     WALL_HEIGHT,
     calibrate_camera,
+    SinglePosStore,
+    FourCoordsStore,
 )
 
 
@@ -44,33 +46,6 @@ FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
     ],
     dtype="float32",
 )
-
-# ToDo: Classes below could easily be one class
-class SinglePosStore:
-    def __init__(self):
-        self._click_pos: Tuple[int, int] = None
-
-    def img_clicked(self, event, x, y, flags, param):
-        if event == cv.EVENT_LBUTTONDBLCLK:
-            cv.circle(first_frame, (x, y), 7, (0, 255, 0))
-            self._click_pos = (x, y)
-
-    def click_pos(self) -> Tuple:
-        return self._click_pos
-
-
-class FourCoordsStore:
-    def __init__(self):
-        self._coords: List = []
-
-    def img_clicked(self, event, x, y, flags, param):
-        if event == cv.EVENT_LBUTTONDBLCLK:
-            cv.circle(first_frame, (x, y), 7, (255, 0, 0))
-            self._coords.append([x, y])
-
-    def click_pos(self) -> np.ndarray:
-        return np.array(self._coords, dtype="float32")
-
 
 if __name__ == "__main__":
     random.seed(1234)
@@ -118,7 +93,7 @@ if __name__ == "__main__":
     frames = extract_frames_from_vid(video_file)
     first_frame = frames[0].copy()
     first_frame_grey = np.mean(first_frame, -1)
-    click_store = SinglePosStore()
+    click_store = SinglePosStore(first_frame)
     cv.namedWindow("First Frame")
     cv.setMouseCallback("First Frame", click_store.img_clicked)
 
@@ -140,7 +115,7 @@ if __name__ == "__main__":
 
     # Get filtered detections from ball detector
     first_frame_ball_pos = click_store.click_pos()
-    detector = Detector(root_dir=ROOT_DIR_PATH)
+    detector = BallDetector(root_dir=ROOT_DIR_PATH)
     measurements = detector.get_filtered_ball_detections(
         sim_id=SIM_ID,
         vid_fname=video_fname,
@@ -164,15 +139,9 @@ if __name__ == "__main__":
     plt.scatter(measurements[:, 0], measurements[:, 1], s=measurements[:, 2] * 2)
     plt.show()
 
-    # ---------------------------------------------- #
-    # Candidate filtering is fragile so to demo tracking and trajectory-interpretation,
-    # use true ball positions with added noise
-    # ToDo: Either add another check for no candidates and use CoM again or reduce pre-processing stringency
-    # ---------------------------------------------- #
-
-    # Obtain the coordinates of the 4 corners of the front wall which will be used to derive the camera projection
-    # matrix
-    coords_store = FourCoordsStore()
+    # Camera calibration: obtain the coordinates of the 4 corners of the front wall which
+    # will be used to derive the inverse of camera projection matrix for 2D->3D
+    coords_store = FourCoordsStore(first_frame)
     cv.namedWindow("First Frame")
     cv.setMouseCallback("First Frame", coords_store.img_clicked)
 
@@ -227,8 +196,6 @@ if __name__ == "__main__":
     x = ball_pos_frames_WC["x"]
     y = ball_pos_frames_WC["y"]
     z = ball_pos_frames_WC["z"]
-
-    # Try on sim 5 and compare true image coords (get using pov camera conversion) to P^-1 conversion
 
     # Convert measurements from image coordinates to world coordinates for KF
     cam_x, cam_y = cam_intrinsics[0, -1], cam_intrinsics[1, -1]

@@ -6,18 +6,16 @@ __all__ = ["TrajectoryInterpreter"]
 
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import (
-    Poly3DCollection,
-)
-from scipy.spatial import Delaunay
+
 from tqdm import tqdm
 
 from ai_umpire import KalmanFilter
 from ai_umpire.util import (
-    FIELD_BOUNDING_BOXES as court_BBs,
+    FIELD_BOUNDING_BOXES,
     gen_grid_of_points,
+    plot_bb,
+    point_bb_collided,
 )
-from ai_umpire.util.field_constants import HALF_COURT_WIDTH, BB_DEPTH, HALF_COURT_LENGTH
 
 plt.rcParams["figure.figsize"] = (10, 10)
 
@@ -46,7 +44,9 @@ class TrajectoryInterpreter:
 
         # Dictionary to store collision probabilities for all bounding boxes after processing each measurement
         # {bb:[p(m_1), p(m_2), ...], ...}
-        self.bb_collision_probs: Dict = {name: [] for name in court_BBs.keys()}
+        self.bb_collision_probs: Dict = {
+            name: [] for name in FIELD_BOUNDING_BOXES.keys()
+        }
 
     def _visualise_interpretation(
         self,
@@ -114,21 +114,23 @@ class TrajectoryInterpreter:
             )
 
         # Plot bounding boxes corresponding to court walls and out-of-court regions
-        for bb_name in court_BBs.keys():
+        for bb_name in FIELD_BOUNDING_BOXES.keys():
             bb_collision_prob = self.bb_collision_probs[bb_name][
                 self._kf.get_t_step() - 1
             ]
             if bbs_to_show == "all":
-                self._plot_bb(
+                plot_bb(
                     bb_name=bb_name,
+                    ax=self._ax,
                     bb_face_annotation="{:.4f}".format(bb_collision_prob),
                     show_vertices=show_bb_verts,
                     show_annotation=bb_collision_prob > 0.001,
                 )
             else:
-                if court_BBs[bb_name]["in_out"] == bbs_to_show:
-                    self._plot_bb(
+                if FIELD_BOUNDING_BOXES[bb_name]["in_out"] == bbs_to_show:
+                    plot_bb(
                         bb_name=bb_name,
+                        ax=self._ax,
                         bb_face_annotation="{:.4f}".format(bb_collision_prob),
                         show_vertices=show_bb_verts,
                         show_annotation=bb_collision_prob > 0.001,
@@ -169,8 +171,6 @@ class TrajectoryInterpreter:
         """Return the probability of a measurement being out of court"""
         mu, cov = self._kf.step()  # KF inference
 
-        print(f"mu = {mu}")
-
         std_dev_x = np.sqrt(cov[0, 0])
         std_dev_y = np.sqrt(cov[1, 1])
         std_dev_z = np.sqrt(cov[2, 2])
@@ -191,11 +191,11 @@ class TrajectoryInterpreter:
             for p in sample_points
         ]
         for bb_name in tqdm(
-            court_BBs.keys(), desc="Calculating collision probabilities"
+            FIELD_BOUNDING_BOXES.keys(), desc="Calculating collision probabilities"
         ):
             # Calculate prob of collision with bb
             sample_points_weighted_probs = [
-                int(self._point_bb_collided(p, bb_name))
+                int(point_bb_collided(p, bb_name))
                 * self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
                 for p in sample_points
             ]
@@ -221,7 +221,7 @@ class TrajectoryInterpreter:
         collision_prob = 0.0
         collision_bb = ""
 
-        for bb_name in court_BBs.keys():
+        for bb_name in FIELD_BOUNDING_BOXES.keys():
             bb_collision_prob = self.bb_collision_probs[bb_name][
                 self._kf.get_t_step() - 1
             ]
@@ -229,85 +229,3 @@ class TrajectoryInterpreter:
                 collision_prob = bb_collision_prob
                 collision_bb = bb_name
         return collision_prob, collision_bb
-
-    def _point_bb_collided(self, point: np.ndarray, bb_name: str) -> bool:
-        if point.shape[0] != 3:
-            raise ValueError("Expecting a 3D point.")
-
-        # For non-cuboid volumes, use Delaunay triangulation to detect if point is in polyhedron
-        bb = court_BBs[bb_name]
-        if bb_name.startswith(("left", "right")):
-            poly = bb["verts"]
-            return Delaunay(poly).find_simplex(point) >= 0
-
-        # For cuboid use simple coordinate comparison
-        return (
-            (bb["min_x"] <= point[0].item() <= bb["max_x"])
-            and (bb["min_y"] <= point[1].item() <= bb["max_y"])
-            and (bb["min_z"] <= point[2].item() <= bb["max_z"])
-        )
-
-    def _plot_bb(
-        self,
-        *,
-        bb_name: str,
-        bb_face_annotation: str = None,
-        show_vertices: bool = False,
-        show_annotation: bool = False,
-    ) -> None:
-        bb = court_BBs[bb_name]
-
-        if bb_name.startswith(("left", "right")):
-            verts = bb["verts"]
-        else:
-            verts = [
-                [x, y, z]
-                for x in [bb["min_x"], bb["max_x"]]
-                for y in [bb["min_y"], bb["max_y"]]
-                for z in [bb["min_z"], bb["max_z"]]
-            ]
-        verts = np.array(verts)
-
-        # Isolate vertices of plane which correspond to the inner face of the wall polyhedron via masking
-        if bb_name.startswith(("front", "tin")):
-            face_verts = verts[~np.any(verts == HALF_COURT_LENGTH + BB_DEPTH, axis=1)]
-            # Swap face corners for non-intersecting plane plotting
-            face_verts[[0, 1]] = face_verts[[1, 0]]
-        elif bb_name.startswith("right"):
-            face_verts = verts[~np.any(verts == HALF_COURT_WIDTH + BB_DEPTH, axis=1)]
-        elif bb_name.startswith("left"):
-            face_verts = verts[~np.any(verts == -HALF_COURT_WIDTH - BB_DEPTH, axis=1)]
-        elif bb_name.startswith("back"):
-            face_verts = verts[~np.any(verts == -HALF_COURT_LENGTH - BB_DEPTH, axis=1)]
-            # Swap face corners for non-intersecting plane plotting
-            face_verts[[0, 1]] = face_verts[[1, 0]]
-        else:  # Back wall case
-            raise ValueError(f"Plotting face for {bb_name} not implemented")
-
-        # Annotate center of bounding boxes inner face
-        if show_annotation:
-            face_center_vert = np.mean(face_verts, axis=0)
-            self._ax.text(
-                face_center_vert[0],
-                face_center_vert[2],
-                face_center_vert[1],
-                bb_face_annotation,
-                zdir="y",
-                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.7),
-            )
-
-        # Convert vertices to list of lists for Poly3DCollection and swap z and y since no zdir param
-        face_verts = [list(zip(face_verts[:, 0], face_verts[:, 2], face_verts[:, 1]))]
-
-        # Plot volume inner face and vertices
-        self._ax.add_collection3d(
-            Poly3DCollection(face_verts, color=bb["colour"], alpha=0.3, lw=0.1)
-        )
-        if show_vertices:
-            self._ax.scatter3D(
-                verts[:, 0],
-                verts[:, 1],
-                verts[:, 2],
-                zdir="y",
-                color=bb["colour"],
-            )
