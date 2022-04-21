@@ -39,7 +39,9 @@ PLAYER_HEIGHT: float = 1.6
 BB_DEPTH = 0.5
 OUT_BB_MAX_Y = FRONT_WALL_OUT_LINE_HEIGHT + 2
 
-# ToDo: This dict should probably be a class or enum, problem prone in its current state.
+# ToDo:
+#  1. This dict should probably be a class or enum,  problem prone in its current state.
+#  2. Check that out-bbs start from out-line - 0.5line-marking-width upwards
 FIELD_BOUNDING_BOXES: Dict = {
     "front_wall": {
         "min_x": -HALF_COURT_WIDTH,

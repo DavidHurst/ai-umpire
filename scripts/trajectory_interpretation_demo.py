@@ -65,6 +65,9 @@ if __name__ == "__main__":
     )
 
     ti = TrajectoryInterpreter(
-        kalman_filter=kf, n_dim_samples=[10, 10, 10], n_std_devs_to_sample=1
+        kalman_filter=kf, n_dim_samples=[15, 8, 15], n_std_devs_to_sample=1
     )
-    ti.interpret_trajectory(visualise=True, save=False)
+    # ti.interpret_trajectory(visualise=False, save=False)
+    trajectory_label = ti.classify_trajectory(0.65)
+
+    print(f"The trajectory has been interpreted as - {trajectory_label}")

@@ -26,6 +26,7 @@ __all__ = [
     "FourCoordsStore",
     "plot_bb",
     "point_bb_collided",
+    "transform_nums_to_range",
 ]
 
 from ai_umpire.util import (
@@ -302,17 +303,32 @@ def calibrate_camera(
     return camera_intrinsics_mtx, rot_mtx, t_vec
 
 
+def transform_nums_to_range(numbers: np.ndarray, old_bounds: List, new_bounds: List) -> np.ndarray:
+    if len(old_bounds) != 2 or len(new_bounds) != 2:
+        raise ValueError("Range must describe a lowe and upper bound.")
+
+    old_range = (old_bounds[1] - old_bounds[0])
+    new_range = (new_bounds[1] - new_bounds[0])
+
+    tformed_numbers = []
+    for num in numbers:
+        tformed_num = (((num - old_bounds[0]) * new_range) / old_range) + new_bounds[0]
+        tformed_numbers.append(tformed_num)
+
+    return np.array(tformed_numbers)
+
+
 def point_bb_collided(point: np.ndarray, bb_name: str) -> bool:
     if point.shape[0] != 3:
         raise ValueError("Expecting a 3D point.")
 
-    # For non-cuboid volumes, use Delaunay triangulation to detect if point is in polyhedron
+    # For irregular cuboid volumes, use Delaunay triangulation to detect if point is in polyhedron
     bb = FIELD_BOUNDING_BOXES[bb_name]
     if bb_name.startswith(("left", "right")):
         poly = bb["verts"]
         return Delaunay(poly).find_simplex(point) >= 0
 
-    # For cuboid use simple coordinate comparison
+    # For cuboid use simple coordinate comparison since BBs are axis aligned
     return (
         (bb["min_x"] <= point[0].item() <= bb["max_x"])
         and (bb["min_y"] <= point[1].item() <= bb["max_y"])

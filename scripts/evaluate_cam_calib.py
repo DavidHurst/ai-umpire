@@ -20,7 +20,7 @@ from ai_umpire.util import (
 from ai_umpire.util.util import (
     calibrate_camera,
     FourCoordsStore,
-    wc_to_ic,
+    wc_to_ic, transform_nums_to_range,
 )
 
 ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -92,6 +92,13 @@ if __name__ == "__main__":
         max_det_area=40.0,
     )
     print(f"Measurements: shape={measurements.shape}, measurements: \n{measurements}")
+
+    # Transform z measurements to be in the range [-0.5COURT_LENGTH, 0.5COURT_LENGTH]
+    old_z = measurements[:, -1]
+    tformed_z = transform_nums_to_range(old_z, [np.min(old_z), np.max(old_z)], [-HALF_COURT_LENGTH, HALF_COURT_LENGTH])
+    tformed_z = np.reshape(tformed_z, (tformed_z.shape[0], 1))
+
+    print(f"Transformed z shape={tformed_z.shape} = {tformed_z}")
 
     # Camera calibration: obtain the coordinates of the 4 corners of the front wall which
     # will be used to derive the inverse of camera projection matrix for 2D->3D
@@ -172,17 +179,18 @@ if __name__ == "__main__":
         pos_ic = wc_to_ic(pos_wc, list(first_frame.shape[:2]))
         xy_homog = np.reshape(np.append(pos_ic, 1), (3, 1))
 
+        scale = 4
+
         # OpenCV homography
         homography_WC = h @ xy_homog
         homography_WC /= homography_WC[-1]
+        homography_WC *= scale
         homography_WC[-1] = z[i]
 
         # Parameter homography
         homography_WC_p = homography @ xy_homog
         homography_WC_p /= homography_WC_p[-1]
         homography_WC_p[-1] = z[i]
-
-        # ToDo: Z needs to be normalised to court depth range
 
         h_dist_2d = math.sqrt(((x[i] - homography_WC[0]) ** 2) + ((y[i] - homography_WC[1]) ** 2) + ((z[i] - homography_WC[2]) ** 2))
         h_p_dist_2d = math.sqrt(((x[i] - homography_WC_p[0]) ** 2) + ((y[i] - homography_WC_p[1]) ** 2) + ((z[i] - homography_WC_p[2]) ** 2))
@@ -202,7 +210,6 @@ if __name__ == "__main__":
     print(f"Mean hom. dist  = {mean_hom_dist:.2f}m")
     print(f"Mean hom. p dist = {mean_hom_p_dist:.2f}m")
 
-    exit()
 
     fig = plt.figure()
     ax = Axes3D(fig, elev=20, azim=-140, auto_add_to_figure=False)

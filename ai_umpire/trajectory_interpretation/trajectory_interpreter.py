@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Dict, Tuple
 
 import numpy as np
@@ -44,7 +45,7 @@ class TrajectoryInterpreter:
 
         # Dictionary to store collision probabilities for all bounding boxes after processing each measurement
         # {bb:[p(m_1), p(m_2), ...], ...}
-        self.bb_collision_probs: Dict = {
+        self._bb_collision_probs: Dict = {
             name: [] for name in FIELD_BOUNDING_BOXES.keys()
         }
 
@@ -115,7 +116,7 @@ class TrajectoryInterpreter:
 
         # Plot bounding boxes corresponding to court walls and out-of-court regions
         for bb_name in FIELD_BOUNDING_BOXES.keys():
-            bb_collision_prob = self.bb_collision_probs[bb_name][
+            bb_collision_prob = self._bb_collision_probs[bb_name][
                 self._kf.get_t_step() - 1
             ]
             if bbs_to_show == "all":
@@ -143,23 +144,72 @@ class TrajectoryInterpreter:
         if display:
             plt.show()
 
+    def classify_trajectory(
+        self,
+        confidence_threshold: float,
+        *,
+        visualise: bool = False,
+        save: bool = False,
+        show_sample_points: bool = False,
+    ) -> str:
+        """
+        Returns the in/out classification of the trajectory
+
+        :return: "out" if the trajectory is interpreted as out, "in" otherwise
+        """
+        if not 0.0 <= confidence_threshold <= 1.0:
+            raise ValueError("Confidence threshold must be in the range [0, 1].")
+
+        no_probs_recorded = len(list(self._bb_collision_probs.values())[0]) == 0
+        if no_probs_recorded:
+            p_out, out_bb_name, frame_out = self.interpret_trajectory(
+                visualise=visualise, save=save, show_sample_points=show_sample_points
+            )
+        else:
+            p_out, out_bb_name, frame_out = 0.0, "", 0
+
+            # Scan through stored probability measurements and keep track of highest prob out, bb name and frame
+            for i in tqdm(range(self._n_measurements), desc="Scanning stored collision probabilities"):
+                for bb_name in FIELD_BOUNDING_BOXES.keys():
+                    bb_out_prob_frame = self._bb_collision_probs[bb_name][i]
+                    if bb_out_prob_frame >= p_out:
+                        p_out, out_bb_name, frame_out = bb_out_prob_frame, bb_name, i
+
+        return "out of court" if p_out >= confidence_threshold else "in"
+
     def interpret_trajectory(
         self,
         *,
         visualise: bool = False,
         save: bool = False,
         show_sample_points: bool = False,
-    ) -> Tuple[str, float]:
-        """Returns probability of trajectory being out and which out-area it most likely hit"""
+    ) -> Tuple[float, str, int]:
+        """
+        Returns probability of trajectory being out, which out-area it most likely hit and in which frame.
+
+        :return: Returns the probability the trajectory was out, which out BB it hit to be out and in which frame
+        """
+
+        if len(list(self._bb_collision_probs.values())[0]) > 0:
+            raise NotImplementedError("Attempted to interpret trajectory twice.")
+            # warnings.warn("Warning, trajectory already interpreted, resetting and recalculating probabilities")
+
+
+        highest_p_out, out_bb_name, out_frame = 0.0, "", 0
         for i in range(self._n_measurements):
             p, bb = self.interpret_next_measurement(
                 visualise=visualise, save=save, show_sample_points=show_sample_points
             )
+            if p >= highest_p_out and FIELD_BOUNDING_BOXES[bb]["in_out"] == "out":
+                highest_p_out, out_bb_name, out_frame = p, bb, i
+                print(
+                    f"[i] New highest prob, {highest_p_out}, {out_bb_name}, {out_frame}"
+                )
             print(
-                f"Measurement #{i}, most likely collision with {bb} with probability {p:.4f}."
+                f"Measurement #{i}: \n    Most likely collision with - {bb} \n    Probability - {p:.4f}"
             )
 
-        print(self.bb_collision_probs)
+        return highest_p_out, out_bb_name, out_frame
 
     def interpret_next_measurement(
         self,
@@ -204,7 +254,7 @@ class TrajectoryInterpreter:
             summed_p_samples = sum(sample_points_probs)
             collision_prob = weighted_summed_p_samples / summed_p_samples
 
-            self.bb_collision_probs[bb_name].append(collision_prob)
+            self._bb_collision_probs[bb_name].append(collision_prob)
 
         if save or visualise:
             self._visualise_interpretation(
@@ -215,17 +265,19 @@ class TrajectoryInterpreter:
                 show_sample_points=show_sample_points,
             )
 
-        return self._most_likely_collision()
+        return self._most_likely_collision(self._kf.get_t_step() - 1)
 
-    def _most_likely_collision(self) -> Tuple[float, str]:
+    def _most_likely_collision(self, measurement_num: int) -> Tuple[float, str]:
         collision_prob = 0.0
         collision_bb = ""
 
         for bb_name in FIELD_BOUNDING_BOXES.keys():
-            bb_collision_prob = self.bb_collision_probs[bb_name][
-                self._kf.get_t_step() - 1
-            ]
+            bb_collision_prob = self._bb_collision_probs[bb_name][measurement_num]
             if bb_collision_prob > collision_prob:
                 collision_prob = bb_collision_prob
                 collision_bb = bb_name
-        return collision_prob, collision_bb
+
+        if collision_bb == "back_wall_out":
+            return collision_prob, collision_bb
+        else:
+            return collision_prob * 2, collision_bb

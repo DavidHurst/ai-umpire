@@ -82,7 +82,7 @@ class KalmanFilter:
             @ np.linalg.inv(self._sigma_m + (self._psi @ self.cov @ self._psi.T))
         )
 
-    def _correct(self) -> None:
+    def _update(self) -> None:
         # State update
         self.mu = self.mu + (
             self.K
@@ -101,7 +101,7 @@ class KalmanFilter:
         if self._t < self._x.shape[0]:
             self._predict()
             self._compute_kalman_gain()
-            self._correct()
+            self._update()
             self._t += 1  # Increment time step
 
             # print(f"Time Step #{self._t}".center(40, "-"))
