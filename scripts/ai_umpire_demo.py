@@ -53,25 +53,25 @@ if __name__ == "__main__":
     # If no POV-Ray data has been generated for this sim id, generate data and render images
     pov_data_file = ROOT_DIR_PATH / "generated_povray" / f"sim_{SIM_ID}_povray"
     if not pov_data_file.exists():
-        # Sun simulation and export state and object texture data to POV-Ray format
+        # Run simulation and export state and object texture data to POV-Ray format
         players_x: List[int] = sample(START_X_POS, 2)
         players_z: List[int] = sample(START_Z_POS, 2)
         sim = MatchSimulator(
             sim_id=SIM_ID,
             root=ROOT_DIR_PATH,
-            step_sz=0.005,
-            ball_origin=chrono.ChVectorD(
+            sim_step_sz=0.005,
+            ball_init_pos=chrono.ChVectorD(
                 choice([-3, 3, -2.5, 2.5]), uniform(0.2, 0.8), randint(-4, -2)
             ),
-            ball_speed=chrono.ChVectorD(randint(-5, 5), randint(6, 15), randint(7, 25)),
-            ball_acc=chrono.ChVectorD(-1, 2, 10),
+            ball_vel=chrono.ChVectorD(randint(-5, 5), randint(6, 15), randint(7, 25)),
+            ball_acc=chrono.ChVectorD(1, 2, 10),
             ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
-            p1_pos_x=players_x[0],
-            p1_pos_z=players_z[0],
-            p1_speed=chrono.ChVectorD(-1, 0, 1),
-            p2_pos_x=players_x[1],
-            p2_pos_z=players_z[1],
-            p2_speed=chrono.ChVectorD(1, 0, -1),
+            p1_init_x=players_x[0],
+            p1_init_z=players_z[0],
+            p1_vel=chrono.ChVectorD(-1, 0, 1),
+            p2_init_x=players_x[1],
+            p2_init_z=players_z[1],
+            p2_vel=chrono.ChVectorD(1, 0, -1),
         )
         sim.run_sim(SIM_LENGTH)
 

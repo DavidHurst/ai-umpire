@@ -76,7 +76,7 @@ ORANGE_TEXTURE_POVRAY.SetCommands(
 
 WALL_DECAL_A_POVRAY = postprocess.ChPovRayAssetCustom()
 WALL_DECAL_A_POVRAY.SetCommands(
-    'pigment { image_map { png "../UOS-logo.png" once transmit all 0.7} translate <-0.5, -0.5, 0> scale <-1.3, 1.3, 1> }'
+    'pigment { image_map { png "../UOS-logo.png" once transmit all 0.7} translate <-0.5, -0.5, 0> scale <1.3, 1.3, 1> }'
 )
 
 WALL_DECAL_B_POVRAY = postprocess.ChPovRayAssetCustom()

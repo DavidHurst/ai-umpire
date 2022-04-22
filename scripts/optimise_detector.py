@@ -11,7 +11,7 @@ from ai_umpire import VideoGenerator, BallDetector
 from ai_umpire.util import wc_to_ic
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
-sim_id = 5
+sim_id = 0
 sim_frames_path: Path = root_dir_path / "sim_frames" / f"sim_{sim_id}_frames"
 sim_blurred_frames_path: Path = (
     root_dir_path / "blurred_frames" / f"sim_{sim_id}_blurred"
@@ -23,7 +23,7 @@ sim_step_sz = 0.005
 n_rendered_frames = int(sim_length / sim_step_sz)
 desired_fps = 50
 n_frames_to_avg = int(n_rendered_frames / desired_fps)
-img_dims = [1024, 768]
+img_dims = [852, 480]
 
 dist_penalty = 1000
 z_surrogate_penalty = 250
@@ -39,7 +39,7 @@ def eval_detector(
 ) -> Tuple:
     # Generate ball candidates per frame in video
     detector = BallDetector(root_dir_path)
-    frame_detections = detector.get_ball_detections(
+    all_detections = detector.get_ball_detections(
         vid_fname=video_fname,
         sim_id=sim_id,
         morph_op="close",
@@ -59,29 +59,31 @@ def eval_detector(
     max_euclid_dists = []
 
     z_surrogate_closest_dets = []
-    for i in range(len(frame_detections)):
+    for i in range(len(all_detections)):
         # Calculate Euclidean distances from true pos to detected positions
-        ball_x_ic, ball_y_ic = wc_to_ic(
-            ball_pos_blurred_WC["x"][i],
+        ball_pos_true = np.array([ball_pos_blurred_WC["x"][i],
             ball_pos_blurred_WC["y"][i],
-            ball_pos_blurred_WC["z"][i],
+            ball_pos_blurred_WC["z"][i]])
+        ball_x_ic, ball_y_ic = wc_to_ic(
+            ball_pos_true,
             img_dims,
         )
         euclid_dists = [
             math.sqrt(((det_x - ball_x_ic) ** 2) + ((det_y - ball_y_ic) ** 2))
-            if det_x != float("inf")
+            if det_x != -1
             else dist_penalty
-            for (det_x, det_y, _) in frame_detections[i]
+            for (det_x, det_y, _) in all_detections[i]
         ]
 
         avg_euclid_dists.append(sum(euclid_dists) / len(euclid_dists))
         min_euclid_dists.append(min(euclid_dists))
         max_euclid_dists.append(max(euclid_dists))
 
+        # Penalise z if no detection made.
         if euclid_dists[euclid_dists.index(min(euclid_dists))] == dist_penalty:
             z_surrogate_closest_dets.append(z_surrogate_penalty)
         else:
-            frame_z_estimates = [z_estim for (_, _, z_estim) in frame_detections[i]]
+            frame_z_estimates = [z_estim for (_, _, z_estim) in all_detections[i]]
             closest_det_idx = euclid_dists.index(min(euclid_dists))
             z_surrogate_closest_dets.append(frame_z_estimates[closest_det_idx])
 
@@ -89,11 +91,13 @@ def eval_detector(
     mean_min_dist = sum(min_euclid_dists) / len(min_euclid_dists)
     sqrt_z_surrogate_closest_dets = np.sqrt(np.array(z_surrogate_closest_dets))
 
+    ball_true_z = ball_pos_blurred_WC["z"].to_numpy()[:-1]
+
     # Compute correlation, evaluation of z estimate
     closest_dets_corr = (
         pd.DataFrame(
             {
-                "z": ball_pos_blurred_WC["z"].to_numpy()[:-1],
+                "z": ball_true_z,
                 "Best Detection": sqrt_z_surrogate_closest_dets,
             }
         )
@@ -104,7 +108,7 @@ def eval_detector(
     if visualise:
         # Plot performance
         fig, axes = plt.subplots(1, 2, figsize=(15, 7))
-        frame_nums = np.arange(0, len(frame_detections))
+        frame_nums = np.arange(0, len(all_detections))
         axes[0].plot(frame_nums, avg_euclid_dists, "b-", label="Mean")
         axes[0].fill_between(
             frame_nums,
@@ -157,51 +161,20 @@ if __name__ == "__main__":
         n_frames_to_avg::n_frames_to_avg, :
     ].reset_index(drop=True)
 
-    # Visualise blurred pos
-    # for i in range(len(ball_pos_blurred_WC)):
-    #     fig, axes = plt.subplots(figsize=(15, 7))
-    #     im1 = cv2.cvtColor(
-    #         cv2.imread(
-    #             str(sim_blurred_frames_path / f"frame{str(i).zfill(5)}.png"),
-    #             cv2.IMREAD_COLOR,
-    #         ),
-    #         cv2.COLOR_BGR2RGB,
-    #     )
-    #
-    #     ball_x_ic, ball_y_ic = wc_to_ic(
-    #         ball_pos_blurred_WC["x"][i], ball_pos_blurred_WC["y"][i], ball_pos_blurred_WC["z"][i], [1024, 768]
-    #     )
-    #
-    #     axes.annotate(
-    #         f'(x_IC, y_IC, z_WC) = ({ball_x_ic:.2f}, {ball_y_ic:.2f}, {ball_pos_blurred_WC["z"][i]:.2f})',
-    #         (ball_x_ic, ball_y_ic),
-    #         xytext=(-300, 0),
-    #         textcoords="offset points",
-    #         bbox=dict(boxstyle="round", fc="0.7"),
-    #         arrowprops=dict(arrowstyle="->", color="green", linewidth=2),
-    #     )
-    #
-    #     axes.imshow(im1)
-    #     axes.set_title(f"Frame #{i}")
-    #     axes.axis("off")
-    #     plt.tight_layout()
-    #     # plt.savefig(f"ball_true_{i}.png")
-    #     plt.show()
-
     # Perform random search of hyperparameters
     rng = np.random.default_rng()
 
-    morph_iters_set_set = list(rng.integers(1, 5, 4))
+    morph_iters_set_set = list(rng.integers(1, 4, 4))
 
-    sizes = rng.integers(10, 30, 4)
+    sizes = rng.integers(2, 17, 5)
     morph_op_SE_shape_set = list(zip(sizes, sizes))
 
-    sizes = [random.randrange(11, 51, 10) for _ in range(3)]
+    sizes = [random.randrange(1, 25, 10) for _ in range(5)]
     blur_kernel_size_set = list(zip(sizes, sizes))
 
-    blur_strength_set = list(rng.integers(2, 15, 3))
+    blur_strength_set = list(rng.integers(1, 15, 4))
 
-    binarize_thresh_low_set = [random.randrange(100, 150, 10) for _ in range(3)]
+    binarize_thresh_low_set = [random.randrange(90, 150, 10) for _ in range(3)]
 
     print("Randomly chosen hyperparameter values:")
     print("Opening iterations: ".ljust(35, " "), morph_iters_set_set)
@@ -233,7 +206,7 @@ if __name__ == "__main__":
         "closest_dets_corr": float("-inf"),
     }
     objective_scaling_values = np.array([0.1, 100])
-    objective_weights = np.array([1, 0.9])
+    objective_weights = np.array([1, 0.7])
 
     # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
     scalarised_objective = float("-inf")

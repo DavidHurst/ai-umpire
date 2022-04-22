@@ -14,24 +14,23 @@ class VideoGenerator:
     def __init__(self, root_dir: Path):
         self._root_dir: Path = root_dir
         self._vid_dir: Path = self._root_dir / "videos"
-        self._blurred_dir: Path = self._root_dir / "blurred_frames"
-        self._frames_dir: Path = self._root_dir / "sim_frames"
+        self._sim_frames_dir: Path = self._root_dir / "frames"
 
     def _apply_motion_blur(self, n_frames_avg: int, sim_id: int) -> None:
         logging.info("Blurring frames...")
-        blurred_out_dir: Path = self._blurred_dir / f"sim_{sim_id}_blurred"
+        blurred_frames_out_dir: Path = self._sim_frames_dir / f"sim_{sim_id}"
         try:
-            blurred_out_dir.mkdir(parents=True, exist_ok=False)
+            blurred_frames_out_dir.mkdir(parents=True, exist_ok=False)
         except FileExistsError as e:
-            logging.error(f"Directory {blurred_out_dir} already exists. {e}")
+            logging.error(f"Directory {blurred_frames_out_dir} already exists. {e}")
             raise FileExistsError(
                 f"Blurred frames directory for sim id {sim_id} already exists."
             )
         else:
-            logging.info(f"Directory {blurred_out_dir} created.")
+            logging.info(f"Directory {blurred_frames_out_dir} created.")
 
-        sim_frames_path: Path = self._root_dir / "sim_frames" / f"sim_{sim_id}_frames"
-        frame_paths: list = glob.glob(f"{str(sim_frames_path)}{os.path.sep}*.png")
+        sim_rendered_images_dir_path: Path = self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
+        frame_paths: list = glob.glob(f"{str(sim_rendered_images_dir_path)}{os.path.sep}*.jpg")
         template_img: np.ndarray = cv2.imread(frame_paths[0], 1)
         averaged_frames: np.ndarray = np.zeros_like(template_img, float)
         i: int = 0
@@ -50,7 +49,7 @@ class VideoGenerator:
                 blurred = cv2.cvtColor(blurred, cv2.COLOR_BGR2RGB)
 
                 fname = (
-                    blurred_out_dir / f"frame{str(blurred_frame_count).zfill(5)}.png"
+                    blurred_frames_out_dir / f"frame{str(blurred_frame_count).zfill(5)}.jpg"
                 )
 
                 cv2.imwrite(str(fname), blurred)
@@ -63,7 +62,7 @@ class VideoGenerator:
                 blurred_frame_count += 1
 
         logging.info(
-            f"{blurred_frame_count} blurred frames  and saved to {blurred_out_dir}."
+            f"{blurred_frame_count} blurred frames  and saved to {blurred_frames_out_dir}."
         )
 
     def convert_frames_to_vid(
@@ -72,19 +71,19 @@ class VideoGenerator:
         desired_fps: int = 50,
     ) -> None:
         logging.info("Converting blurred frames to video...")
-        sim_frames_path: Path = self._frames_dir / f"sim_{sim_id}_frames"
-        if not sim_frames_path.exists():
+        sim_rendered_images_dir_path: Path = self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
+        if not sim_rendered_images_dir_path.exists():
             raise FileNotFoundError(
                 f"Rendered frames from simulation {sim_id} not found."
             )
 
         # Apply motion blur to frames
-        num_frames: int = len(glob.glob(f"{sim_frames_path}{os.path.sep}*.png"))
+        num_frames: int = len(glob.glob(f"{sim_rendered_images_dir_path}{os.path.sep}*.jpg"))
         self._apply_motion_blur(int(num_frames / desired_fps), sim_id)
 
-        # Encode blurred with a .mp4 encoder
-        sim_blurred_frames_path: Path = self._blurred_dir / f"sim_{sim_id}_blurred"
-        frame_paths: list = glob.glob(f"{sim_blurred_frames_path}{os.path.sep}*.png")
+        # Encode blurred frames with a .mp4 encoder
+        blurred_frames_out_dir: Path = self._sim_frames_dir / f"sim_{sim_id}"
+        frame_paths: list = glob.glob(f"{blurred_frames_out_dir}{os.path.sep}*.jpg")
         img_array: list = [cv2.imread(f_path) for f_path in frame_paths]
         f_height: int
         f_width: int

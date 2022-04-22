@@ -15,12 +15,15 @@ from ai_umpire.util import (
     FIELD_BOUNDING_BOXES,
     HALF_COURT_WIDTH,
     HALF_COURT_LENGTH,
-    WALL_HEIGHT, SERVICE_LINE_HEIGHT, FRONT_WALL_OUT_LINE_HEIGHT,
+    WALL_HEIGHT,
+    SERVICE_LINE_HEIGHT,
+    FRONT_WALL_OUT_LINE_HEIGHT,
 )
 from ai_umpire.util.util import (
     calibrate_camera,
     FourCoordsStore,
-    wc_to_ic, transform_nums_to_range,
+    wc_to_ic,
+    transform_nums_to_range,
 )
 
 ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
@@ -32,10 +35,26 @@ DESIRED_FPS: int = 50
 N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
 FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
     [
-        [-HALF_COURT_WIDTH, FRONT_WALL_OUT_LINE_HEIGHT, HALF_COURT_LENGTH],  # Front Wall Line Left
-        [-HALF_COURT_WIDTH, SERVICE_LINE_HEIGHT, HALF_COURT_LENGTH],  # Service Line Left
-        [HALF_COURT_WIDTH, FRONT_WALL_OUT_LINE_HEIGHT, HALF_COURT_LENGTH],  # Front Wall Line Right
-        [HALF_COURT_WIDTH, SERVICE_LINE_HEIGHT, HALF_COURT_LENGTH],  # Service Line Right
+        [
+            -HALF_COURT_WIDTH,
+            FRONT_WALL_OUT_LINE_HEIGHT,
+            HALF_COURT_LENGTH,
+        ],  # Front Wall Line Left
+        [
+            -HALF_COURT_WIDTH,
+            SERVICE_LINE_HEIGHT,
+            HALF_COURT_LENGTH,
+        ],  # Service Line Left
+        [
+            HALF_COURT_WIDTH,
+            FRONT_WALL_OUT_LINE_HEIGHT,
+            HALF_COURT_LENGTH,
+        ],  # Front Wall Line Right
+        [
+            HALF_COURT_WIDTH,
+            SERVICE_LINE_HEIGHT,
+            HALF_COURT_LENGTH,
+        ],  # Service Line Right
     ],
     dtype="float32",
 )
@@ -95,7 +114,9 @@ if __name__ == "__main__":
 
     # Transform z measurements to be in the range [-0.5COURT_LENGTH, 0.5COURT_LENGTH]
     old_z = measurements[:, -1]
-    tformed_z = transform_nums_to_range(old_z, [np.min(old_z), np.max(old_z)], [-HALF_COURT_LENGTH, HALF_COURT_LENGTH])
+    tformed_z = transform_nums_to_range(
+        old_z, [np.min(old_z), np.max(old_z)], [-HALF_COURT_LENGTH, HALF_COURT_LENGTH]
+    )
     tformed_z = np.reshape(tformed_z, (tformed_z.shape[0], 1))
 
     print(f"Transformed z shape={tformed_z.shape} = {tformed_z}")
@@ -164,11 +185,18 @@ if __name__ == "__main__":
     print(f"t_z = {t_vec[-1]}")
 
     # Estimate homography
-    homography = cam_intrinsics @ np.c_[np.reshape(rot_mtx[:, 0], (3, 1)), np.reshape(rot_mtx[:, 1], (3, 1)), t_vec]
+    homography = (
+        cam_intrinsics
+        @ np.c_[
+            np.reshape(rot_mtx[:, 0], (3, 1)), np.reshape(rot_mtx[:, 1], (3, 1)), t_vec
+        ]
+    )
     homography /= t_vec[-1]  # Normalise
     print(f"homography from parameters:\n{homography}")
 
-    h, _ = cv.findHomography(front_wall_image_coords, FRONT_WALL_WORLD_COORDS, method=cv.RANSAC)
+    h, _ = cv.findHomography(
+        front_wall_image_coords, FRONT_WALL_WORLD_COORDS, method=cv.RANSAC
+    )
     print("opencv homography:\n", h)
 
     measurements_WC_h = []
@@ -192,8 +220,16 @@ if __name__ == "__main__":
         homography_WC_p /= homography_WC_p[-1]
         homography_WC_p[-1] = z[i]
 
-        h_dist_2d = math.sqrt(((x[i] - homography_WC[0]) ** 2) + ((y[i] - homography_WC[1]) ** 2) + ((z[i] - homography_WC[2]) ** 2))
-        h_p_dist_2d = math.sqrt(((x[i] - homography_WC_p[0]) ** 2) + ((y[i] - homography_WC_p[1]) ** 2) + ((z[i] - homography_WC_p[2]) ** 2))
+        h_dist_2d = math.sqrt(
+            ((x[i] - homography_WC[0]) ** 2)
+            + ((y[i] - homography_WC[1]) ** 2)
+            + ((z[i] - homography_WC[2]) ** 2)
+        )
+        h_p_dist_2d = math.sqrt(
+            ((x[i] - homography_WC_p[0]) ** 2)
+            + ((y[i] - homography_WC_p[1]) ** 2)
+            + ((z[i] - homography_WC_p[2]) ** 2)
+        )
 
         # print(f"Measurement #{i}".ljust(50, "-"))
         # print(f"Pos IC = {pos_ic}")
@@ -209,7 +245,6 @@ if __name__ == "__main__":
 
     print(f"Mean hom. dist  = {mean_hom_dist:.2f}m")
     print(f"Mean hom. p dist = {mean_hom_p_dist:.2f}m")
-
 
     fig = plt.figure()
     ax = Axes3D(fig, elev=20, azim=-140, auto_add_to_figure=False)

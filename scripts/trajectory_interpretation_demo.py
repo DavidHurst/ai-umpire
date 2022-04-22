@@ -40,6 +40,8 @@ if __name__ == "__main__":
         0, 0.02, size=(measurements.shape[0], 3)
     )
 
+    # ToDo compute mean an covariance of measurements to pass as params
+
     n_variables = 3
     n_measurement_vals = measurements[0].shape[0]
     mu_p = np.zeros((n_variables, 1))

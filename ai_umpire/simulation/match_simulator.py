@@ -1,7 +1,7 @@
 import logging
 import random
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import pandas as pd
 import pychrono as chrono
@@ -39,33 +39,66 @@ PLAYER_MAT.SetSfriction(0.2)
      * Change output file type to JPEG
 """
 
+"""
+Once data is exported, the following must be appended to the render_sim_# file:
+
+        #include "screen.inc"     
+        #local cam_loc = <0,3,-16>;         
+        #local cam_look_at = <0,3,16>;       
+        #local cam_transform = transform
+            {
+                matrix
+                <
+                    1, 0, 0,
+                    0, 1, 0,
+                    0, 0, 1,
+                    0, 0, 0
+                >                       
+            }  
+
+        Set_Camera_Location(cam_loc)  
+        Set_Camera_Look_At(cam_look_at)     
+        Set_Camera_Transform(cam_transform)
+
+And the screen.inc file must be place in the same directory as the file.
+The setting Final_Frame in the .ini file must have its value change to the actual number of states produced, 399 in the
+case of the script, append the following to the render_sim_#.ini file
+        Output_File_Type=J
+        Quality=8
+        Continue_Trace=on       
+        Work_Threads=2048
+        Final_Frame=0399
+"""
+
 
 class MatchSimulator:
     def __init__(
         self,
         sim_id: int,
         root: Path,
-        step_sz: float,
-        ball_origin: chrono.ChVectorD,
-        ball_speed: chrono.ChVectorD,
+        sim_step_sz: float,
+        ball_init_pos: chrono.ChVectorD,
+        ball_vel: chrono.ChVectorD,
         ball_acc: chrono.ChVectorD,
         ball_rot_dt: chrono.ChQuaternionD,
-        p1_pos_x: float,
-        p1_pos_z: float,
-        p1_speed: chrono.ChVectorD,
-        p2_pos_x: float,
-        p2_pos_z: float,
-        p2_speed: chrono.ChVectorD,
+        p1_init_x: float,
+        p1_init_z: float,
+        p1_vel: chrono.ChVectorD,
+        p2_init_x: float,
+        p2_init_z: float,
+        p2_vel: chrono.ChVectorD,
+        output_res: Tuple,
     ) -> None:
         self._id: int = sim_id
         self._root: Path = root
+        self._out_res = output_res
         self._povray_out_file: str = f"sim_{sim_id}_povray"
         self._povray_out_dir_path: Path = (
             self._root / "generated_povray" / self._povray_out_file
         )
         self._ball_pos_out_path = root / "ball_pos"
         self._sys: chrono.ChSystemNSC = chrono.ChSystemNSC()
-        self._time_step: float = step_sz
+        self._time_step: float = sim_step_sz
 
         self._sys.SetStep(self._time_step)
 
@@ -73,9 +106,9 @@ class MatchSimulator:
         self._ball: chrono.ChBodyEasySphere = chrono.ChBodyEasySphere(
             0.04, 0.5, True, True, BALL_MAT
         )
-        self._ball.SetPos(ball_origin)
+        self._ball.SetPos(ball_init_pos)
         self._ball.SetName("Ball")
-        self._ball.SetPos_dt(ball_speed)
+        self._ball.SetPos_dt(ball_vel)
         self._ball.SetPos_dtdt(ball_acc)
         self._ball.SetRot_dt(ball_rot_dt)
         self._ball.AddAsset(BALL_TEXTURE_POVRAY)
@@ -86,10 +119,10 @@ class MatchSimulator:
         )
         self._player1.SetName("Player 1")
         p1_pos: chrono.ChVectorD = chrono.ChVectorD(
-            p1_pos_x, (PLAYER_HEIGHT / 2) + 0.01, p1_pos_z
+            p1_init_x, (PLAYER_HEIGHT / 2) + 0.01, p1_init_z
         )
         self._player1.SetPos(p1_pos)
-        self._player1.SetPos_dt(p1_speed)
+        self._player1.SetPos_dt(p1_vel)
         self._player1.AddAsset(ORANGE_TEXTURE_POVRAY)
 
         # Initialise player 2 body
@@ -98,10 +131,10 @@ class MatchSimulator:
         )
         self._player2.SetName("Player 2")
         p2_pos: chrono.ChVectorD = chrono.ChVectorD(
-            p2_pos_x, (PLAYER_HEIGHT / 2) + 0.01, p2_pos_z
+            p2_init_x, ((PLAYER_HEIGHT - 0.3) / 2) + 0.01, p2_init_z
         )
         self._player2.SetPos(p2_pos)
-        self._player2.SetPos_dt(p2_speed)
+        self._player2.SetPos_dt(p2_vel)
         self._player2.AddAsset(PURPLE_TEXTURE_POVRAY)
 
         # Add bodies to physics system
@@ -170,7 +203,7 @@ class MatchSimulator:
                 chrono.ChVectorD(0, 7, 0), chrono.ChColor(1.2, 1.2, 1.2, 1), True
             )
             pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
-            pov_exporter.SetPictureSize(854, 480)
+            pov_exporter.SetPictureSize(self._out_res[0], self._out_res[1])  # Output resolution
             pov_exporter.SetAntialiasing(True, 6, 0.3)
             pov_exporter.AddAll()
             pov_exporter.ExportScript()
@@ -186,12 +219,12 @@ class MatchSimulator:
                 pov_exporter.ExportData()
                 self._sys.DoStepDynamics(self._time_step)
                 pbar.update(1)
-                # Emulate random player movement
-                if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                    self._player1.SetPos_dt(random.choice(random_moves))
-
-                if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                    self._player2.SetPos_dt(random.choice(random_moves))
+                # # Emulate random player movement
+                # if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                #     self._player1.SetPos_dt(random.choice(random_moves))
+                #
+                # if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                #     self._player2.SetPos_dt(random.choice(random_moves))
         if visualise:
             logging.info("Visualising simulation.")
             # contact_reporter.reset()
@@ -224,15 +257,15 @@ class MatchSimulator:
 
                 # self._sys.GetContactContainer().ReportAllContacts(contact_reporter)
 
-                # Emulate random player movement
-                if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                    self._player1.SetPos_dt(random.choice(random_moves))
-
-                if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                    self._player2.SetPos_dt(random.choice(random_moves))
-
-                if self.get_sim_time() >= duration:
-                    vis_app.SetPaused(True)
+                # # Emulate random player movement
+                # if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                #     self._player1.SetPos_dt(random.choice(random_moves))
+                #
+                # if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
+                #     self._player2.SetPos_dt(random.choice(random_moves))
+                #
+                # if self.get_sim_time() >= duration:
+                #     vis_app.SetPaused(True)
 
         # Save ball pos to file
         if export:
@@ -241,7 +274,10 @@ class MatchSimulator:
             )
             df.to_csv(str(self._ball_pos_out_path / f"sim_{self._id}.csv"))
 
-        return ball_pos
+        if not export:
+            return None
+        else:
+            return ball_pos
 
     def get_sim_time(self) -> float:
         return self._sys.GetChTime()

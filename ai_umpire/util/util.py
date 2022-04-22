@@ -36,12 +36,13 @@ from ai_umpire.util import (
     HALF_COURT_WIDTH,
 )
 
+# Extracted from POV-Ray, will only work with wc_to_ic function for a image resolution of [852, 480]
 CAM_EXTRINSICS_HOMOG: np.ndarray = np.array(
     [
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 0.75, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 3.0, -13.0, 1.0],
+        [1.0, 0.0,     0.0, 0.0],
+        [0.0, 0.65338, 0.0, 0.0],
+        [0.0, 0.0,     1.0, 0.0],
+        [0.0, 3.0,     -16.0, 1.0],
     ]
 )
 
@@ -105,7 +106,7 @@ def wc_to_ic(
     pos_wc: np.ndarray, img_dims: List[int], *, m: np.ndarray = CAM_EXTRINSICS_HOMOG_INV
 ) -> Tuple[int, int]:
     img_dims.reverse()
-    """Only works for sim id = 5, will not generalise to real data"""
+    """Only works for synthetic videos in 720p as the camera matrix has been extracted specifically for that use."""
     pos_x_wc, pos_y_wc, pos_z_wc = pos_wc[0], pos_wc[1], pos_wc[2]
 
     homog_ball_wc: np.ndarray = np.reshape(

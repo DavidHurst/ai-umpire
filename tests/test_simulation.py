@@ -20,19 +20,19 @@ def sim_instance():
     sim = MatchSimulator(
         sim_id=SIM_ID,
         root=ROOT,
-        step_sz=0.005,
-        ball_origin=chrono.ChVectorD(
+        sim_step_sz=0.005,
+        ball_init_pos=chrono.ChVectorD(
             choice([-3, 3, -2.5, 2.5]), uniform(0.2, 0.8), randint(-4, -2)
         ),
-        ball_speed=chrono.ChVectorD(randint(-5, 5), randint(6, 15), randint(7, 25)),
+        ball_vel=chrono.ChVectorD(randint(-5, 5), randint(6, 15), randint(7, 25)),
         ball_acc=chrono.ChVectorD(-1, 2, 10),
         ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
-        p1_pos_x=players_x[0],
-        p1_pos_z=players_z[0],
-        p1_speed=chrono.ChVectorD(-1, 0, 1),
-        p2_pos_x=players_x[1],
-        p2_pos_z=players_z[1],
-        p2_speed=chrono.ChVectorD(1, 0, -1),
+        p1_init_x=players_x[0],
+        p1_init_z=players_z[0],
+        p1_vel=chrono.ChVectorD(-1, 0, 1),
+        p2_init_x=players_x[1],
+        p2_init_z=players_z[1],
+        p2_vel=chrono.ChVectorD(1, 0, -1),
     )
     return sim
 
