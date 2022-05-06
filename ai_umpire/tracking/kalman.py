@@ -109,7 +109,7 @@ class KalmanFilter:
             # print("cov:\n", self.cov)
             # print("K:\n", self.K)
         else:
-            print("All measurements processed, returning final KF internal state.")
+            print("All detections_IC processed, returning final KF internal state.")
 
         return self.mu, self.cov
 

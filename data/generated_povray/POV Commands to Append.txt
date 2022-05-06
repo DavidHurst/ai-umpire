@@ -1,0 +1,19 @@
+// Append to render_sim_#.pov files. File might not have a visible extension so append to that one. Not .ini or .assets.
+
+#include "screen.inc"  
+#local cam_loc = <0,3,-16>;         
+#local cam_look_at = <0,3,16>;       
+#local cam_transform = transform
+    {
+		matrix
+		<
+			1, 0, 0,
+			0, 1, 0,
+			0, 0, 1,
+			0, 0, 0
+		>                       
+	}  
+                                       
+Set_Camera_Location(cam_loc)  
+Set_Camera_Look_At(cam_look_at)     
+Set_Camera_Transform(cam_transform)

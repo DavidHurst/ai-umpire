@@ -203,7 +203,9 @@ class MatchSimulator:
                 chrono.ChVectorD(0, 7, 0), chrono.ChColor(1.2, 1.2, 1.2, 1), True
             )
             pov_exporter.SetBackground(chrono.ChColor(0.2, 0.2, 0.2, 1))
-            pov_exporter.SetPictureSize(self._out_res[0], self._out_res[1])  # Output resolution
+            pov_exporter.SetPictureSize(
+                self._out_res[0], self._out_res[1]
+            )  # Output resolution
             pov_exporter.SetAntialiasing(True, 6, 0.3)
             pov_exporter.AddAll()
             pov_exporter.ExportScript()

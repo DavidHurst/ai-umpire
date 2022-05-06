@@ -16,7 +16,7 @@ __all__ = [
     "HALF_COURT_LENGTH",
 ]
 
-# All measurements in meters
+# All detections_IC in meters
 from typing import Dict
 
 import numpy as np

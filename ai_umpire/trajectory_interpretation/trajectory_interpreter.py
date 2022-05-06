@@ -78,7 +78,7 @@ class TrajectoryInterpreter:
         self._ax.set_zlabel("$y$")
         self._ax.set_ylabel("$z$")
 
-        # Plot measurements
+        # Plot detections_IC
         self._ax.plot3D(
             self._trajectory[:, 0],
             self._trajectory[:, 1],
@@ -168,8 +168,11 @@ class TrajectoryInterpreter:
         else:
             p_out, out_bb_name, frame_out = 0.0, "", 0
 
-            # Scan through stored probability measurements and keep track of highest prob out, bb name and frame
-            for i in tqdm(range(self._n_measurements), desc="Scanning stored collision probabilities"):
+            # Scan through stored probability detections_IC and keep track of highest prob out, bb name and frame
+            for i in tqdm(
+                range(self._n_measurements),
+                desc="Scanning stored collision probabilities",
+            ):
                 for bb_name in FIELD_BOUNDING_BOXES.keys():
                     bb_out_prob_frame = self._bb_collision_probs[bb_name][i]
                     if bb_out_prob_frame >= p_out:
@@ -193,7 +196,6 @@ class TrajectoryInterpreter:
         if len(list(self._bb_collision_probs.values())[0]) > 0:
             raise NotImplementedError("Attempted to interpret trajectory twice.")
             # warnings.warn("Warning, trajectory already interpreted, resetting and recalculating probabilities")
-
 
         highest_p_out, out_bb_name, out_frame = 0.0, "", 0
         for i in range(self._n_measurements):

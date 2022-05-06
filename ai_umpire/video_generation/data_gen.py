@@ -29,8 +29,12 @@ class VideoGenerator:
         else:
             logging.info(f"Directory {blurred_frames_out_dir} created.")
 
-        sim_rendered_images_dir_path: Path = self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
-        frame_paths: list = glob.glob(f"{str(sim_rendered_images_dir_path)}{os.path.sep}*.jpg")
+        sim_rendered_images_dir_path: Path = (
+            self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
+        )
+        frame_paths: list = glob.glob(
+            f"{str(sim_rendered_images_dir_path)}{os.path.sep}*.jpg"
+        )
         template_img: np.ndarray = cv2.imread(frame_paths[0], 1)
         averaged_frames: np.ndarray = np.zeros_like(template_img, float)
         i: int = 0
@@ -49,7 +53,8 @@ class VideoGenerator:
                 blurred = cv2.cvtColor(blurred, cv2.COLOR_BGR2RGB)
 
                 fname = (
-                    blurred_frames_out_dir / f"frame{str(blurred_frame_count).zfill(5)}.jpg"
+                    blurred_frames_out_dir
+                    / f"frame{str(blurred_frame_count).zfill(5)}.jpg"
                 )
 
                 cv2.imwrite(str(fname), blurred)
@@ -71,14 +76,18 @@ class VideoGenerator:
         desired_fps: int = 50,
     ) -> None:
         logging.info("Converting blurred frames to video...")
-        sim_rendered_images_dir_path: Path = self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
+        sim_rendered_images_dir_path: Path = (
+            self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"
+        )
         if not sim_rendered_images_dir_path.exists():
             raise FileNotFoundError(
                 f"Rendered frames from simulation {sim_id} not found."
             )
 
         # Apply motion blur to frames
-        num_frames: int = len(glob.glob(f"{sim_rendered_images_dir_path}{os.path.sep}*.jpg"))
+        num_frames: int = len(
+            glob.glob(f"{sim_rendered_images_dir_path}{os.path.sep}*.jpg")
+        )
         self._apply_motion_blur(int(num_frames / desired_fps), sim_id)
 
         # Encode blurred frames with a .mp4 encoder

@@ -1,0 +1,7 @@
+// Append the commands below to the files called render_sim_#.ini
+// Also change the final frame number to be the actual number of states produced by PyChrono, denoted by Final_Frame=
+
+Final_Frame=??
+Output_File_Type=J	; Output as .JPEG
+Quality=8		; Lower quality without losing on realism
+Continue_Trace=on       ; Continue rendering from last frame rendered if render was stopped.

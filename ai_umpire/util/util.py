@@ -1,4 +1,5 @@
 import logging
+import warnings
 from pathlib import Path
 from typing import List, Tuple, Dict
 
@@ -39,10 +40,10 @@ from ai_umpire.util import (
 # Extracted from POV-Ray, will only work with wc_to_ic function for a image resolution of [852, 480]
 CAM_EXTRINSICS_HOMOG: np.ndarray = np.array(
     [
-        [1.0, 0.0,     0.0, 0.0],
-        [0.0, 0.65338, 0.0, 0.0],
-        [0.0, 0.0,     1.0, 0.0],
-        [0.0, 3.0,     -16.0, 1.0],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.5625, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 3.0, -16.0, 1.0],
     ]
 )
 
@@ -105,6 +106,11 @@ def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
 def wc_to_ic(
     pos_wc: np.ndarray, img_dims: List[int], *, m: np.ndarray = CAM_EXTRINSICS_HOMOG_INV
 ) -> Tuple[int, int]:
+    # The format OpenCV loaded images are in
+    if img_dims[0] > img_dims[1]:
+        warnings.warn(
+            "Warning, expecting image dimensions given as height x width, possible opposite provided."
+        )
     img_dims.reverse()
     """Only works for synthetic videos in 720p as the camera matrix has been extracted specifically for that use."""
     pos_x_wc, pos_y_wc, pos_z_wc = pos_wc[0], pos_wc[1], pos_wc[2]
@@ -304,12 +310,14 @@ def calibrate_camera(
     return camera_intrinsics_mtx, rot_mtx, t_vec
 
 
-def transform_nums_to_range(numbers: np.ndarray, old_bounds: List, new_bounds: List) -> np.ndarray:
+def transform_nums_to_range(
+    numbers: np.ndarray, old_bounds: List, new_bounds: List
+) -> np.ndarray:
     if len(old_bounds) != 2 or len(new_bounds) != 2:
         raise ValueError("Range must describe a lowe and upper bound.")
 
-    old_range = (old_bounds[1] - old_bounds[0])
-    new_range = (new_bounds[1] - new_bounds[0])
+    old_range = old_bounds[1] - old_bounds[0]
+    new_range = new_bounds[1] - new_bounds[0]
 
     tformed_numbers = []
     for num in numbers:
