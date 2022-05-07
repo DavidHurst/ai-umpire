@@ -7,9 +7,9 @@ import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from scipy.spatial import Delaunay
 from numpy import pi
 from numpy.linalg import inv, det
+from scipy.spatial import Delaunay
 from tqdm import tqdm
 
 __all__ = [

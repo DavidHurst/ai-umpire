@@ -2,8 +2,8 @@ from pathlib import Path
 from random import randint, uniform, choice, sample
 from typing import List
 
-import pytest
 import pychrono as chrono
+import pytest
 
 from ai_umpire.simulation.match_simulator import MatchSimulator
 

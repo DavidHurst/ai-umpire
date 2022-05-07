@@ -5,8 +5,8 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from scipy.signal import savgol_filter
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.signal import savgol_filter
 
 from ai_umpire import BallDetector
 from ai_umpire.util import (
@@ -16,7 +16,6 @@ from ai_umpire.util import (
     FIELD_BOUNDING_BOXES,
     HALF_COURT_WIDTH,
     HALF_COURT_LENGTH,
-    WALL_HEIGHT,
     SERVICE_LINE_HEIGHT,
     FRONT_WALL_OUT_LINE_HEIGHT,
 )
@@ -60,7 +59,7 @@ FRONT_WALL_WORLD_COORDS: np.ndarray = np.array(
     dtype="float32",
 )
 
-plt.rcParams["figure.figsize"] = (10, 10)
+plt.rcParams["figure.figsize"] = (5.5, 4.5)
 
 if __name__ == "__main__":
     video_fname = f"sim_{SIM_ID}.mp4"
@@ -167,99 +166,76 @@ if __name__ == "__main__":
     y = ball_pos_frames_WC["y"]
     z = ball_pos_frames_WC["z"]
 
-    plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), smoothed_tformed_z, label="Smoothed")
-    plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), tformed_z, label="Not Smoothed")
-    plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), z[1:], label="GT")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), smoothed_tformed_z, label="Smoothed")
+    # plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), tformed_z, label="Not Smoothed")
+    # plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), z[1:], label="GT")
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
 
     # Derive projection matrix using 4 known image coordinates and their corresponding world coordinates
     cam_intrinsics, rot_mtx, t_vec = calibrate_camera(
         FRONT_WALL_WORLD_COORDS, front_wall_image_coords, first_frame_grey.shape
     )
 
-    # Estimate homography
-    # homography = (
-    #     cam_intrinsics
-    #     @ np.c_[
-    #         np.reshape(rot_mtx[:, 0], (3, 1)), np.reshape(rot_mtx[:, 1], (3, 1)), t_vec
-    #     ]
-    # )
-    # homography /= t_vec[-1]  # Normalise
-    # print(f"homography from parameters:\n{homography}")
-
     h, _ = cv.findHomography(
         front_wall_image_coords, FRONT_WALL_WORLD_COORDS, method=cv.RANSAC
     )
 
-
-    gt_IC_projected_points = []
-    det_IC_projected_points = []
-    gt_proj_mean_error = 0.0
+    gt_reprojected = []
+    det_projected = []
+    gt_reproj_mean_error = 0.0
     det_proj_mean_error = 0.0
     for i in range(len(detections_IC)):
+        # Project true ball positions from world coordinates to image coordinates
         pos_wc = np.array([x[i], y[i], z[i]])
         pos_ic = wc_to_ic(pos_wc, list(first_frame.shape[:2]))
-        xy_homog = np.reshape(np.append(pos_ic, 1), (3, 1))
+        gt_xy_homog = np.reshape(np.append(pos_ic, 1), (3, 1))
+
+        # Homogenise detection
         det_x = detections_IC[i][0]
         det_y = detections_IC[i][1]
-        measurement_xy_homog = np.reshape(np.append([det_x, det_y], 1), (3, 1))
+        det_xy_homog = np.reshape(np.append([det_x, det_y], 1), (3, 1))
 
-        scale = 5
+        scale = 1  # Scale constant for homography
 
         # OpenCV homography on true pos
-        homography_WC = h @ xy_homog
-        homography_WC /= homography_WC[-1]
-        homography_WC *= scale
-        homography_WC[-1] = smoothed_tformed_z[i]
+        reproj_pt = h @ gt_xy_homog
+        reproj_pt /= reproj_pt[-1]
+        reproj_pt *= scale
+        reproj_pt[-1] = z[i]
 
         # OpenCV homography on detections
-        det_WC = h @ measurement_xy_homog
-        det_WC /= det_WC[-1]
-        det_WC *= scale
-        det_WC[-1] = z[i]
+        det_proj_pt = h @ det_xy_homog
+        det_proj_pt /= det_proj_pt[-1]
+        det_proj_pt *= scale
+        det_proj_pt[-1] = z[i]
 
-        # Parameter homography
-        # homography_WC_p = homography @ xy_homog
-        # homography_WC_p /= homography_WC_p[-1]
-        # homography_WC_p[-1] = z[i]
-
-        h_dist_2d = math.sqrt(
-            ((x[i] - homography_WC[0]) ** 2)
-            + ((y[i] - homography_WC[1]) ** 2)
-            + ((z[i] - homography_WC[2]) ** 2)
+        # Calculate error in projection/reprojection
+        reproj_error = math.sqrt(
+            ((x[i] - reproj_pt[0]) ** 2)
+            + ((y[i] - reproj_pt[1]) ** 2)
+            + ((z[i] - reproj_pt[2]) ** 2)
         )
-        det_dist = math.sqrt(
-            ((x[i] - det_WC[0]) ** 2)
-            + ((y[i] - det_WC[1]) ** 2)
-            + ((z[i] - det_WC[2]) ** 2)
+        det_proj_error = math.sqrt(
+            ((x[i] - det_proj_pt[0]) ** 2)
+            + ((y[i] - det_proj_pt[1]) ** 2)
+            + ((z[i] - det_proj_pt[2]) ** 2)
         )
-        # h_p_dist_2d = math.sqrt(
-        #     ((x[i] - homography_WC_p[0]) ** 2)
-        #     + ((y[i] - homography_WC_p[1]) ** 2)
-        #     + ((z[i] - homography_WC_p[2]) ** 2)
-        # )
 
-        # print(f"Measurement #{i}".ljust(50, "-"))
-        # print(f"Pos IC = {pos_ic}")
-        # print(f"Pos WC                             = {pos_wc}")
-        # print(f"Pos WC (OpenCV Hom.), d={h_dist_2d:.2f},   = {homography_WC.T.squeeze()}")
-        # print(f"Pos WC (Param. Hom.), d={h_p_dist_2d:.2f}, = {homography_WC_p.T.squeeze()}")
+        gt_reprojected.append(reproj_pt)
+        det_projected.append(det_proj_pt)
+        gt_reproj_mean_error += reproj_error / len(x)
+        det_proj_mean_error += det_proj_error / len(x)
 
-        gt_IC_projected_points.append(homography_WC)
-        det_IC_projected_points.append(det_WC)
-        gt_proj_mean_error += h_dist_2d / len(x)
-        det_proj_mean_error += det_dist / len(x)
+    gt_reprojected = np.array(gt_reprojected).squeeze()
+    det_projected = np.array(det_projected).squeeze()
 
-    gt_IC_projected_points = np.array(gt_IC_projected_points).squeeze()
-    det_IC_projected_points = np.array(det_IC_projected_points).squeeze()
-
-    print(f"GT projection error    = {gt_proj_mean_error:.2f}m")
+    print(f"GTs reprojection error = {gt_reproj_mean_error:.2f}m")
     print(f"Dets. projection error = {det_proj_mean_error:.2f}m")
 
     fig = plt.figure()
-    ax = Axes3D(fig, elev=20, azim=-140, auto_add_to_figure=False)
+    ax = Axes3D(fig, elev=15, azim=-140, auto_add_to_figure=False)
     fig.add_axes(ax)
 
     ax.grid(False)
@@ -271,13 +247,14 @@ if __name__ == "__main__":
     ax.set_ylabel("$z$")
 
     for bb_name in FIELD_BOUNDING_BOXES.keys():
-        plot_bb(
-            bb_name=bb_name,
-            ax=ax,
-            bb_face_annotation="",
-            show_vertices=False,
-            show_annotation=False,
-        )
+        if not bb_name.startswith(("left", "back")):
+            plot_bb(
+                bb_name=bb_name,
+                ax=ax,
+                bb_face_annotation="",
+                show_vertices=False,
+                show_annotation=False,
+            )
 
     ax.plot3D(
         x,
@@ -288,32 +265,31 @@ if __name__ == "__main__":
         alpha=0.5,
         c="g",
         zdir="y",
-        markersize=10,
         zorder=4,
     )
+    # ax.plot3D(
+    #     det_projected[:, 0],
+    #     det_projected[:, 1],
+    #     det_projected[:, 2],
+    #     "-x",
+    #     alpha=0.5,
+    #     label="GT Reproj.",
+    #     c="b",
+    #     zdir="y",
+    #     markersize=10,
+    #     zorder=5,
+    # )
     ax.plot3D(
-        det_IC_projected_points[:, 0],
-        det_IC_projected_points[:, 1],
-        det_IC_projected_points[:, 2],
-        "-x",
-        alpha=0.5,
-        label="Det Proj.",
-        c="b",
-        zdir="y",
-        markersize=10,
-        zorder=5,
-    )
-    ax.plot3D(
-        gt_IC_projected_points[:, 0],
-        gt_IC_projected_points[:, 1],
-        gt_IC_projected_points[:, 2],
+        gt_reprojected[:, 0],
+        gt_reprojected[:, 1],
+        gt_reprojected[:, 2],
         "-^",
         alpha=0.5,
-        label="GT Proj.",
+        label="GT Reproj.",
         c="r",
         zdir="y",
-        markersize=10,
         zorder=5,
     )
     plt.legend()
+    plt.savefig("eval_cam_calib.png")
     plt.show()

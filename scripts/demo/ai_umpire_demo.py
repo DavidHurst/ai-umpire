@@ -1,14 +1,13 @@
-import math
 import random
+from pathlib import Path
+from random import sample, choice, uniform, randint
+from typing import List
 
+import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pychrono as chrono
-import cv2 as cv
-from pathlib import Path
-from random import sample, choice, uniform, randint
-from typing import List, Tuple
 
 from ai_umpire import (
     MatchSimulator,
@@ -26,7 +25,6 @@ from ai_umpire.util import (
     SinglePosStore,
     FourCoordsStore,
 )
-
 
 ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 SIM_ID: int = 5

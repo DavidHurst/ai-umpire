@@ -1,11 +1,7 @@
-from itertools import combinations, product
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from numpy import linspace, pi, cos, sin
 
 from ai_umpire import KalmanFilter
 from ai_umpire.trajectory_interpretation import TrajectoryInterpreter

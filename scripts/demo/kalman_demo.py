@@ -3,12 +3,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt, transforms
+from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 from numpy import linspace
 
 from ai_umpire import KalmanFilter
-from ai_umpire.util import multivariate_norm_pdf
 
 root_dir_path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
 sim_id = 5

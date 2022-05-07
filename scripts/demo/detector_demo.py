@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import cv2 as cv
+
 from ai_umpire import BallDetector
 
 ROOT_DIR_PATH = Path() / "data"

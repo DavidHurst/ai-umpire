@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from matplotlib import pyplot as plt
 
 from ai_umpire.util import (
     extract_frames_from_vid,
