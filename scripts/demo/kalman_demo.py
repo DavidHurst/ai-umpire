@@ -49,8 +49,8 @@ if __name__ == "__main__":
     phi = np.eye(
         n_measurement_vals, n_variables
     )  # Temporary, should relate data to state e.g. through a projection
-    # sigma_p = np.ones((n_variables, n_variables))
-    # sigma_m = np.ones((n_variables, n_variables))
+    # sigma_p = np.ones((states_dim, states_dim))
+    # sigma_m = np.ones((states_dim, states_dim))
     sigma_p = np.identity(n_variables) * 3
     sigma_m = np.identity(n_variables) * 4
 

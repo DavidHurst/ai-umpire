@@ -85,9 +85,9 @@ CAM_EXTRINSICS_HOMOG_INV: np.ndarray = np.linalg.inv(CAM_EXTRINSICS_HOMOG)
 
 
 def gen_grid_of_points(
-        center: np.ndarray,
-        n_dim_samples: list,
-        sampling_area_size: list,
+    center: np.ndarray,
+    n_dim_samples: list,
+    sampling_area_size: list,
 ) -> np.ndarray:
     if center.shape[0] != 3:
         raise ValueError("Expecting 3D point for center.")
@@ -138,7 +138,7 @@ def multivariate_norm_pdf(x: np.array, mu: np.array, sigma: np.array) -> float:
 
 
 def wc_to_ic(
-        pos_wc: np.ndarray, img_dims: List[int], *, m: np.ndarray = CAM_EXTRINSICS_HOMOG_INV
+    pos_wc: np.ndarray, img_dims: List[int], *, m: np.ndarray = CAM_EXTRINSICS_HOMOG_INV
 ) -> Tuple[int, int]:
     # The format OpenCV loaded images are in
     if img_dims[0] > img_dims[1]:
@@ -154,8 +154,8 @@ def wc_to_ic(
     )
     homog_tformed_ball_wc: np.ndarray = homog_ball_wc @ m
     tformed_ball_wc: np.ndarray = homog_tformed_ball_wc[
-                                  :, :-1
-                                  ]  # Convert homogenous to Cartesian
+        :, :-1
+    ]  # Convert homogenous to Cartesian
     pos_ic_coefs: np.ndarray = np.array(
         [
             0.5 + (tformed_ball_wc[:, 0] / tformed_ball_wc[:, -1]),
@@ -169,14 +169,14 @@ def wc_to_ic(
 
 
 def binarize_frames(
-        frames: np.ndarray,
-        thresh_low: int,
-        thresh_high: int = 255,
-        disable_progbar: bool = False,
+    frames: np.ndarray,
+    thresh_low: int,
+    thresh_high: int = 255,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     binary_frames: List[np.ndarray] = []
     for i in tqdm(
-            range(frames.shape[0]), desc="Binarizing frames", disable=disable_progbar
+        range(frames.shape[0]), desc="Binarizing frames", disable=disable_progbar
     ):
         frame: np.ndarray = frames[i]
 
@@ -199,14 +199,14 @@ def binarize_frames(
 
 
 def blur_frames(
-        frames: np.ndarray,
-        kernel_sz: Tuple[int, int],
-        sigma_x: int,
-        disable_progbar: bool = False,
+    frames: np.ndarray,
+    kernel_sz: Tuple[int, int],
+    sigma_x: int,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     blurred_frames: List[np.ndarray] = []
     for i in tqdm(
-            range(frames.shape[0]), desc="Blurring frames", disable=disable_progbar
+        range(frames.shape[0]), desc="Blurring frames", disable=disable_progbar
     ):
         blurred_frames.append(cv.GaussianBlur(frames[i], kernel_sz, sigma_x))
 
@@ -214,12 +214,12 @@ def blur_frames(
 
 
 def apply_morph_op(
-        frames: np.ndarray,
-        morph_op: str,
-        n_iter: int,
-        kernel_shape: Tuple[int, int],
-        struc_el: np.ndarray = cv.MORPH_RECT,
-        disable_progbar: bool = False,
+    frames: np.ndarray,
+    morph_op: str,
+    n_iter: int,
+    kernel_shape: Tuple[int, int],
+    struc_el: np.ndarray = cv.MORPH_RECT,
+    disable_progbar: bool = False,
 ) -> np.ndarray:
     morph_ops: Dict[str, np.ndarray] = {
         "erode": cv.MORPH_ERODE,
@@ -234,9 +234,9 @@ def apply_morph_op(
 
     morph_op_frames: List[np.ndarray] = []
     for i in tqdm(
-            range(frames.shape[0]),
-            desc=f"Applying morph. op. ({morph_op})",
-            disable=disable_progbar,
+        range(frames.shape[0]),
+        desc=f"Applying morph. op. ({morph_op})",
+        disable=disable_progbar,
     ):
         morph_op_frame = cv.morphologyEx(
             src=frames[i],
@@ -253,9 +253,9 @@ def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.n
     foreground_segmented_frames: List[np.ndarray] = []
 
     for i in tqdm(
-            range(1, frames.shape[0] - 1),
-            desc="Differencing frames",
-            disable=disable_progbar,
+        range(1, frames.shape[0] - 1),
+        desc="Differencing frames",
+        disable=disable_progbar,
     ):
         # Convert all to greyscale
         preceding: np.ndarray = frames[i - 1]
@@ -281,7 +281,7 @@ def difference_frames(frames: np.ndarray, disable_progbar: bool = False) -> np.n
 
 
 def extract_frames_from_vid(
-        vid_path: Path, disable_progbar: bool = False
+    vid_path: Path, disable_progbar: bool = False
 ) -> np.ndarray:
     logging.info("Extracting frames from video.")
     v_cap: cv.VideoCapture = cv.VideoCapture(str(vid_path), cv.CAP_FFMPEG)
@@ -303,7 +303,7 @@ def extract_frames_from_vid(
 
 
 def calibrate_camera(
-        world_coords: np.ndarray, image_coords: np.ndarray, image_size: Tuple[int, int]
+    world_coords: np.ndarray, image_coords: np.ndarray, image_size: Tuple[int, int]
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Returns the components of the camera matrix.
@@ -345,7 +345,7 @@ def calibrate_camera(
 
 
 def transform_nums_to_range(
-        numbers: np.ndarray, old_bounds: List, new_bounds: List
+    numbers: np.ndarray, old_bounds: List, new_bounds: List
 ) -> np.ndarray:
     if len(old_bounds) != 2 or len(new_bounds) != 2:
         raise ValueError("Range must describe a lowe and upper bound.")
@@ -373,19 +373,19 @@ def point_bb_collided(point: np.ndarray, bb_name: str) -> bool:
 
     # For cuboid use simple coordinate comparison since BBs are axis aligned
     return (
-            (bb["min_x"] <= point[0].item() <= bb["max_x"])
-            and (bb["min_y"] <= point[1].item() <= bb["max_y"])
-            and (bb["min_z"] <= point[2].item() <= bb["max_z"])
+        (bb["min_x"] <= point[0].item() <= bb["max_x"])
+        and (bb["min_y"] <= point[1].item() <= bb["max_y"])
+        and (bb["min_z"] <= point[2].item() <= bb["max_z"])
     )
 
 
 def plot_bb(
-        bb_name: str,
-        ax: plt.axes,
-        *,
-        bb_face_annotation: str = None,
-        show_vertices: bool = False,
-        show_annotation: bool = False,
+    bb_name: str,
+    ax: plt.axes,
+    *,
+    bb_face_annotation: str = None,
+    show_vertices: bool = False,
+    show_annotation: bool = False,
 ) -> None:
     bb = FIELD_BOUNDING_BOXES[bb_name]
 
@@ -482,7 +482,7 @@ def approximate_homography(video_path: Path) -> np.ndarray:
 
 
 def get_sim_ball_pos(
-        sim_id: int, root_dir_path: Path, n_frames_to_avg: int
+    sim_id: int, root_dir_path: Path, n_frames_to_avg: int
 ) -> np.ndarray:
     # Get true ball positions (output at time of simulation data exporting)
     BALL_POS_TRUE = root_dir_path / "ball_pos" / f"sim_{sim_id}.csv"
@@ -490,8 +490,8 @@ def get_sim_ball_pos(
 
     # Get position of ball in frames (different from true pos due to blurring by averaging frames)
     ball_pos_frames_WC = ball_pos_WC.iloc[
-                         n_frames_to_avg::n_frames_to_avg, :
-                         ].reset_index(drop=True)
+        n_frames_to_avg::n_frames_to_avg, :
+    ].reset_index(drop=True)
 
     x = ball_pos_frames_WC["x"].to_numpy()
     y = ball_pos_frames_WC["y"].to_numpy()

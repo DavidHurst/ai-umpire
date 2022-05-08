@@ -49,16 +49,8 @@ class KalmanFilter:
         )  # We can be more confident, assuming init mu is good
         self.cov[2, 2] *= 10  # Decrease confidence in z position
 
-        # print("Init".center(40, "-"))
-        # print("mu_p:\n", self._mu_p)
-        # print("mu_m:\n", self._mu_m)
-        # print("psi:\n", self._psi)
-        # print("phi:\n", self._phi)
-        # print("sigma_p:\n", self._sigma_p)
-        # print("sigma_m:\n", self._sigma_m)
-        #
-        # print("mu:\n", self.mu)
-        # print("cov:\n", self.cov)
+        print(f"init mu:\n{self.mu}")
+        print(f"init cov:\n{self.cov}")
 
     def get_trajectory(self) -> np.ndarray:
         return self._x
@@ -76,7 +68,7 @@ class KalmanFilter:
         self.K = (
             self.cov
             @ self._phi.T
-            @ np.linalg.inv(self._sigma_m + (self._psi @ self.cov @ self._psi.T))
+            @ np.linalg.inv(self._sigma_m + (self._phi @ self.cov @ self._phi.T))
         )
 
     def _update(self) -> None:
