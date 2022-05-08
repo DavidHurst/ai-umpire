@@ -45,12 +45,12 @@ class KalmanFilter:
         # Initialise mean and covariance
         self.mu = init_mu
         self.cov = (
-            np.identity(self.mu.shape[0]) * 50
-        )  # We can be more confident, assuming init mu is good
-        self.cov[2, 2] *= 10  # Decrease confidence in z position
-
-        print(f"init mu:\n{self.mu}")
-        print(f"init cov:\n{self.cov}")
+            np.identity(self.mu.shape[0]) * 100
+        )
+        # Decrease trust in z since ww can not provide a good initial estimate
+        self.cov[6, 6] *= 50
+        self.cov[7, 7] *= 50
+        self.cov[8, 8] *= 50
 
     def get_trajectory(self) -> np.ndarray:
         return self._x
@@ -107,3 +107,8 @@ class KalmanFilter:
 
     def get_t_step(self) -> int:
         return self._t
+
+    def reset(self) -> None:
+        self.mu = np.append(self.mu[:3].copy(), np.zeros(6)).reshape((9, 1))
+        self.cov = np.identity(self.mu.shape[0]) * 100
+        print("KF reset.")

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # init_ball_pos_wc /= init_ball_pos_wc[-1]
     # init_ball_pos_wc = np.array(init_ball_pos_wc) * 5  # Scale
     # init_ball_pos_wc[-1] = 0
-    init_ball_pos_wc = np.append(np.array([-1.71358755, -0.85250551, 0.]), np.ones(6))
+    init_ball_pos_wc = np.append(np.array([-1.71358755, -0.85250551, 0.0]), np.zeros(6))
 
     # Kalman filter will track ball over time and smooth noise in the detections_IC
     measurements_dim = 3
@@ -65,22 +65,24 @@ if __name__ == "__main__":
     psi[7, 8] = 0.5 * (delta_t ** 2)
     psi[4, 5] = delta_t
     mu_p = np.zeros((states_dim, 1))
-    sigma_p = np.identity(states_dim)
+    transition_noise = rng.normal(0, 0.035, size=(states_dim, states_dim))
+    sigma_p = np.identity(states_dim) + transition_noise
 
     # Define measurement model's parameters
     phi = np.zeros((measurements_dim, states_dim))
-    for i in range(phi.shape[0]):
+    for i in range(phi.shape[0]):  # Set main diagonal to ones
         phi[i, i] = 1
     mu_m = np.zeros((measurements_dim, 1))
-    sigma_m = np.identity(measurements_dim) * 50
+    measurement_noise = rng.normal(0, 0.07, size=(measurements_dim, measurements_dim))
+    sigma_m = (np.identity(measurements_dim) * 30) + measurement_noise
 
-    print("KF Internal model's parameters".ljust(70, "-"))
-    print(f"psi: \n{psi}:")
-    print(f"mu_p: \n{mu_p}:")
-    print(f"sigma_p: \n{sigma_p}:")
-    print(f"phi: \n{phi}:")
-    print(f"mu_m: \n{mu_m}:")
-    print(f"sigma_m: \n{sigma_m}:")
+    # print("KF Internal model's parameters".ljust(70, "-"))
+    # print(f"psi: \n{psi}:")
+    # print(f"mu_p: \n{mu_p}:")
+    # print(f"sigma_p: \n{sigma_p}:")
+    # print(f"phi: \n{phi}:")
+    # print(f"mu_m: \n{mu_m}:")
+    # print(f"sigma_m: \n{sigma_m}:")
 
     kf = KalmanFilter(
         init_mu=init_ball_pos_wc.reshape((states_dim, 1)),
@@ -94,10 +96,16 @@ if __name__ == "__main__":
         mu_p=mu_p,
     )
 
-    mean_tracking_err = 0.0
-    mean_noisy_gt_err = 0.0
+    tracking_errs = []
+    tracking_errs_x = []
+    tracking_errs_y = []
+    tracking_errs_z = []
+    noisy_gt_errs = []
     state_pos_preds = []
+    # Get KF to process measurements
     for i in range(noisy_gt.shape[0]):
+        if i == 18:
+            kf.reset()
         mu, cov = kf.step()
 
         gt_x = ball_pos_true[i][0]
@@ -107,23 +115,57 @@ if __name__ == "__main__":
         state_pos_preds.append(mu[:3].T.squeeze())
 
         # Calculate KF prediction error
-        tracking_error = math.sqrt(
-            ((gt_x - mu[0]) ** 2)
-            + ((gt_y - mu[1]) ** 2)
-            + ((gt_z - mu[2]) ** 2)
-        )
+        tracking_error_x = math.sqrt(((gt_x - mu[0]) ** 2))
+        tracking_error_y = math.sqrt(((gt_y - mu[1]) ** 2))
+        tracking_error_z = math.sqrt(((gt_z - mu[2]) ** 2))
+        tracking_error = tracking_error_x + tracking_error_y + tracking_error_z
+
         noisy_gt_error = math.sqrt(
             ((gt_x - noisy_gt[i][0]) ** 2)
             + ((gt_y - noisy_gt[i][1]) ** 2)
             + ((gt_z - noisy_gt[i][2]) ** 2)
         )
 
-        mean_tracking_err += tracking_error / noisy_gt.shape[0]
-        mean_noisy_gt_err += noisy_gt_error / noisy_gt.shape[0]
+        tracking_errs_x.append(tracking_error_x)
+        tracking_errs_y.append(tracking_error_y)
+        tracking_errs_z.append(tracking_error_z)
+        tracking_errs.append(tracking_error)
+        noisy_gt_errs.append(noisy_gt_error)
     state_pos_preds = np.array(state_pos_preds)
 
-    print(f"Mean tracking error = {mean_tracking_err:.4f}")
-    print(f"Noisy gt error      = {mean_noisy_gt_err:.4f}")
+    print(f"Mean tracking error    = {sum(tracking_errs) / len(tracking_errs):.4f}")
+    print(f"Mean tracking error: x = {sum(tracking_errs_x) / len(tracking_errs_x):.4f}")
+    print(f"Mean tracking error: y = {sum(tracking_errs_y) / len(tracking_errs_y):.4f}")
+    print(f"Mean tracking error: z = {sum(tracking_errs_z) / len(tracking_errs_z):.4f}")
+    print(f"Noisy gt error         = {sum(noisy_gt_errs) / len(noisy_gt_errs):.4f}")
+
+    # Plot tracking error in all axes across time
+    # plt.plot(np.arange(0, len(tracking_errs)), tracking_errs, label="Tracking Error")
+    # plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
+    plt.ylabel("Error- Euclidean Distance (meters)")
+    plt.xlabel("Measurement")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("tracker_err_over_time.png")
+    # plt.show()
+
+    # Plot tracking error per axis across time
+    # plt.plot(
+    #     np.arange(0, len(tracking_errs)), tracking_errs_x, label="Tracking Error - X"
+    # )
+    # plt.plot(
+    #     np.arange(0, len(tracking_errs)), tracking_errs_y, label="Tracking Error - Y"
+    # )
+    # plt.plot(
+    #     np.arange(0, len(tracking_errs)), tracking_errs_z, label="Tracking Error - Z"
+    # )
+    # plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
+    plt.ylabel("Error- Euclidean Distance (meters)")
+    plt.xlabel("Measurement")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("tracker_err_over_time_per_dim.png")
+    # plt.show()
 
     fig = plt.figure()
     ax = Axes3D(fig, elev=15, azim=-140, auto_add_to_figure=False)
@@ -167,16 +209,16 @@ if __name__ == "__main__":
         c="r",
         zdir="y",
     )
-    ax.plot3D(
-        noisy_gt[:, 0],
-        noisy_gt[:, 1],
-        noisy_gt[:, 2],
-        "-x",
-        label="Noisy GT",
-        alpha=0.5,
-        c="b",
-        zdir="y",
-    )
+    # ax.plot3D(
+    #     noisy_gt[:, 0],
+    #     noisy_gt[:, 1],
+    #     noisy_gt[:, 2],
+    #     "-x",
+    #     label="Noisy GT",
+    #     alpha=0.5,
+    #     c="b",
+    #     zdir="y",
+    # )
     plt.legend()
     # plt.savefig("eval_ball_tracker.png")
     plt.show()
