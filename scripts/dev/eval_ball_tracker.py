@@ -38,14 +38,14 @@ if __name__ == "__main__":
     )
 
     # Obtain initial ball position (will be in image coords) and project into world coords
-    # init_ball_pos_ic = get_init_ball_pos(vid_dir_path, vid_fname)
-    # h = approximate_homography(video_path=vid_dir_path / vid_fname)
-    # init_ball_pos_ic_homog = np.reshape(np.append(init_ball_pos_ic, 1), (3, 1))
-    # init_ball_pos_wc = h @ init_ball_pos_ic_homog
-    # init_ball_pos_wc /= init_ball_pos_wc[-1]
-    # init_ball_pos_wc = np.array(init_ball_pos_wc) * 5  # Scale
-    # init_ball_pos_wc[-1] = 0
-    init_ball_pos_wc = np.append(np.array([-1.71358755, -0.85250551, 0.0]), np.zeros(6))
+    init_ball_pos_ic = get_init_ball_pos(vid_dir_path, vid_fname)
+    h = approximate_homography(video_path=vid_dir_path / vid_fname)
+    init_ball_pos_ic_homog = np.reshape(np.append(init_ball_pos_ic, 1), (3, 1))
+    init_ball_pos_wc = h @ init_ball_pos_ic_homog
+    init_ball_pos_wc /= init_ball_pos_wc[-1]
+    init_ball_pos_wc = np.array(init_ball_pos_wc) * 5  # Scale
+    init_ball_pos_wc[-1] = 0
+    init_ball_pos_wc = np.append(init_ball_pos_wc, np.zeros(6))
 
     # Kalman filter will track ball over time and smooth noise in the detections_IC
     measurements_dim = 3
@@ -86,7 +86,6 @@ if __name__ == "__main__":
 
     kf = KalmanFilter(
         init_mu=init_ball_pos_wc.reshape((states_dim, 1)),
-        n_variables=states_dim,
         measurements=noisy_gt,
         sigma_m=sigma_m,
         sigma_p=sigma_p,
@@ -140,32 +139,32 @@ if __name__ == "__main__":
     print(f"Noisy gt error         = {sum(noisy_gt_errs) / len(noisy_gt_errs):.4f}")
 
     # Plot tracking error in all axes across time
-    # plt.plot(np.arange(0, len(tracking_errs)), tracking_errs, label="Tracking Error")
-    # plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
+    plt.plot(np.arange(0, len(tracking_errs)), tracking_errs, label="Tracking Error")
+    plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
     plt.ylabel("Error- Euclidean Distance (meters)")
     plt.xlabel("Measurement")
     plt.legend()
     plt.tight_layout()
     plt.savefig("tracker_err_over_time.png")
-    # plt.show()
+    plt.show()
 
     # Plot tracking error per axis across time
-    # plt.plot(
-    #     np.arange(0, len(tracking_errs)), tracking_errs_x, label="Tracking Error - X"
-    # )
-    # plt.plot(
-    #     np.arange(0, len(tracking_errs)), tracking_errs_y, label="Tracking Error - Y"
-    # )
-    # plt.plot(
-    #     np.arange(0, len(tracking_errs)), tracking_errs_z, label="Tracking Error - Z"
-    # )
-    # plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
+    plt.plot(
+        np.arange(0, len(tracking_errs)), tracking_errs_x, label="Tracking Error - X"
+    )
+    plt.plot(
+        np.arange(0, len(tracking_errs)), tracking_errs_y, label="Tracking Error - Y"
+    )
+    plt.plot(
+        np.arange(0, len(tracking_errs)), tracking_errs_z, label="Tracking Error - Z"
+    )
+    plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
     plt.ylabel("Error- Euclidean Distance (meters)")
     plt.xlabel("Measurement")
     plt.legend()
     plt.tight_layout()
     plt.savefig("tracker_err_over_time_per_dim.png")
-    # plt.show()
+    plt.show()
 
     fig = plt.figure()
     ax = Axes3D(fig, elev=15, azim=-140, auto_add_to_figure=False)
@@ -220,5 +219,5 @@ if __name__ == "__main__":
     #     zdir="y",
     # )
     plt.legend()
-    # plt.savefig("eval_ball_tracker.png")
+    plt.savefig("eval_ball_tracker.png")
     plt.show()

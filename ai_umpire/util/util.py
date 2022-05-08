@@ -3,9 +3,7 @@ import warnings
 from pathlib import Path
 from typing import List, Tuple, Dict
 
-import cv2
 import cv2 as cv
-import numpy
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt

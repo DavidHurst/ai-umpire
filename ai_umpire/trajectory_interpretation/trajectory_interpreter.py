@@ -34,10 +34,10 @@ class TrajectoryInterpreter:
         self._kf: KalmanFilter = kalman_filter
         self._trajectory: np.ndarray = self._kf.get_trajectory()
         self._n_measurements = self._trajectory.shape[0]
-        self._n_variables = self._kf.get_n_variables()
-        if len(n_dim_samples) != self._n_variables:
+        self._kf_states_dim = 3
+        if len(n_dim_samples) != 3:
             raise ValueError(
-                "You must provide how many points to sample for each dimension."
+                "You must indicate how many sample points to generate for each dimension."
             )
         self._dim_samples = n_dim_samples
         self._sample_size_coef = n_std_devs_to_sample
@@ -150,11 +150,11 @@ class TrajectoryInterpreter:
         visualise: bool = False,
         save: bool = False,
         show_sample_points: bool = False,
-    ) -> str:
+    ) -> Tuple[str, float]:
         """
         Returns the in/out classification of the trajectory
 
-        :return: "out" if the trajectory is interpreted as out, "in" otherwise
+        :return: "out" if the trajectory is interpreted as out, "in" otherwise and confidence in this label
         """
         if not 0.0 <= confidence_threshold <= 1.0:
             raise ValueError("Confidence threshold must be in the range [0, 1].")
@@ -167,7 +167,7 @@ class TrajectoryInterpreter:
         else:
             p_out, out_bb_name, frame_out = 0.0, "", 0
 
-            # Scan through stored probability detections_IC and keep track of highest prob out, bb name and frame
+            # Scan through stored probability detections_IC and keep track of the highest prob out, bb name and frame
             for i in tqdm(
                 range(self._n_measurements),
                 desc="Scanning stored collision probabilities",
@@ -177,7 +177,7 @@ class TrajectoryInterpreter:
                     if bb_out_prob_frame >= p_out:
                         p_out, out_bb_name, frame_out = bb_out_prob_frame, bb_name, i
 
-        return "out of court" if p_out >= confidence_threshold else "in"
+        return "out" if p_out >= confidence_threshold else "in", p_out
 
     def interpret_trajectory(
         self,
@@ -234,11 +234,11 @@ class TrajectoryInterpreter:
         ]
 
         # Generate grid of sample points
-        sample_points = gen_grid_of_points(mu, self._dim_samples, sampling_area_size)
+        sample_points = gen_grid_of_points(mu[:3], self._dim_samples, sampling_area_size)
 
         # Generate sample points' probabilities given KF internal parameters for each bounding box
         sample_points_probs = [
-            self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
+            self._kf.prob_of_point(np.reshape(p, (self._kf_states_dim, 1)))
             for p in sample_points
         ]
         for bb_name in tqdm(
@@ -247,7 +247,7 @@ class TrajectoryInterpreter:
             # Calculate prob of collision with bb
             sample_points_weighted_probs = [
                 int(point_bb_collided(p, bb_name))
-                * self._kf.prob_of_point(np.reshape(p, (self._n_variables, 1)))
+                * self._kf.prob_of_point(np.reshape(p, (self._kf_states_dim, 1)))
                 for p in sample_points
             ]
 
@@ -270,7 +270,7 @@ class TrajectoryInterpreter:
 
     def _most_likely_collision(self, measurement_num: int) -> Tuple[float, str]:
         collision_prob = 0.0
-        collision_bb = ""
+        collision_bb = None
 
         for bb_name in FIELD_BOUNDING_BOXES.keys():
             bb_collision_prob = self._bb_collision_probs[bb_name][measurement_num]
@@ -278,7 +278,11 @@ class TrajectoryInterpreter:
                 collision_prob = bb_collision_prob
                 collision_bb = bb_name
 
+        if collision_bb is None:
+            return 0.0, "none"
+
         if collision_bb == "back_wall_out":
-            return collision_prob, collision_bb
+            collision_prob = self._bb_collision_probs["back_wall_out"][measurement_num]
+            return collision_prob, "back_wall_out"
         else:
             return collision_prob * 2, collision_bb
