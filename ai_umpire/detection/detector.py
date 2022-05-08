@@ -15,6 +15,7 @@ from ai_umpire.util import (
     binarize_frames,
     apply_morph_op,
 )
+from ai_umpire.util.util import get_init_ball_pos
 
 
 class BallDetector:
@@ -139,55 +140,6 @@ class BallDetector:
         # ToDo: convert to numpy array
         self._all_detections = detections
         return detections
-
-    def get_filtered_ball_detections(
-        self,
-        vid_fname: str,
-        morph_op: str,
-        morph_op_iters: int,
-        morph_op_se_shape: Tuple[int, int],
-        struc_el_shape: np.ndarray,
-        blur_kernel_size: Tuple[int, int],
-        blur_sigma: int,
-        binary_thresh: int,
-        init_ball_pos: Tuple[float, float],
-        min_ball_travel_dist: float,
-        max_ball_travel_dist: float,
-        min_det_area: float,
-        max_det_area: float,
-        *,
-        disable_progbar: bool = False,
-        sim_id: int,
-    ) -> np.ndarray:
-
-        self.get_ball_detections(
-            vid_fname=vid_fname,
-            morph_op=morph_op,
-            morph_op_iters=morph_op_iters,
-            morph_op_se_shape=morph_op_se_shape,
-            struc_el_shape=struc_el_shape,
-            blur_kernel_size=blur_kernel_size,
-            blur_sigma=blur_sigma,
-            binary_thresh=binary_thresh,
-            disable_progbar=disable_progbar,
-            sim_id=sim_id,
-        )
-
-        filtered_dets = self._filter_ball_detections(
-            sim_id=sim_id,
-            frame_detections=self._all_detections,
-            init_ball_pos=init_ball_pos,
-            min_ball_travel_dist=min_ball_travel_dist,
-            max_ball_travel_dist=max_ball_travel_dist,
-            min_det_area=min_det_area,
-            max_det_area=max_det_area,
-            disable_progbar=disable_progbar,
-        )
-
-        # Temporary solution until KF is used to filter candidate detections:
-        # Arbitrarily select first detection in frame detections if more than one detection present.
-        # This is in order to get one detection per frame to form the detections_IC for the KF.
-        return np.array([detection[0] for detection in filtered_dets])
 
     def _filter_ball_detections(
         self,
@@ -317,3 +269,52 @@ class BallDetector:
 
         return filtered_dets
 
+    def get_filtered_ball_detections(
+        self,
+        vid_fname: str,
+        morph_op: str,
+        morph_op_iters: int,
+        morph_op_se_shape: Tuple[int, int],
+        struc_el_shape: np.ndarray,
+        blur_kernel_size: Tuple[int, int],
+        blur_sigma: int,
+        binary_thresh: int,
+        min_ball_travel_dist: float,
+        max_ball_travel_dist: float,
+        min_det_area: float,
+        max_det_area: float,
+        *,
+        disable_progbar: bool = False,
+        sim_id: int,
+    ) -> np.ndarray:
+
+        self.get_ball_detections(
+            vid_fname=vid_fname,
+            morph_op=morph_op,
+            morph_op_iters=morph_op_iters,
+            morph_op_se_shape=morph_op_se_shape,
+            struc_el_shape=struc_el_shape,
+            blur_kernel_size=blur_kernel_size,
+            blur_sigma=blur_sigma,
+            binary_thresh=binary_thresh,
+            disable_progbar=disable_progbar,
+            sim_id=sim_id,
+        )
+
+        init_ball_pos = get_init_ball_pos(self._vid_dir, vid_fname)
+
+        filtered_dets = self._filter_ball_detections(
+            sim_id=sim_id,
+            frame_detections=self._all_detections,
+            init_ball_pos=init_ball_pos,
+            min_ball_travel_dist=min_ball_travel_dist,
+            max_ball_travel_dist=max_ball_travel_dist,
+            min_det_area=min_det_area,
+            max_det_area=max_det_area,
+            disable_progbar=disable_progbar,
+        )
+
+        # Temporary solution until KF is used to filter candidate detections:
+        # Arbitrarily select first detection in frame detections if more than one detection present.
+        # This is in order to get one detection per frame to form the detections_IC for the KF.
+        return np.array([detection[0] for detection in filtered_dets])

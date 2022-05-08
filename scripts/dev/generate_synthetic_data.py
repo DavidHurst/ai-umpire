@@ -67,9 +67,9 @@ if __name__ == "__main__":
     # Render videos using simulation data
     # for i in range(1):
     #     video_fname = f"sim_{i}.mp4"
-    #     video_file = ROOT_DIR_PATH / "videos" / video_fname
+    #     video_file_path = ROOT_DIR_PATH / "videos" / video_fname
     #     # Check no video has been generated for this sim id
-    #     if video_file.exists():
+    #     if video_file_path.exists():
     #         raise FileExistsError(f"Video already encoded for Simulation ID {i}.")
     #
     #     # Generate video from images rendered by POV Ray of

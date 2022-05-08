@@ -7,7 +7,10 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from ai_umpire import BallDetector
-from ai_umpire.util import wc_to_ic, extract_frames_from_vid, SinglePosStore
+from ai_umpire.util import (
+    wc_to_ic,
+    get_sim_ball_pos,
+)
 
 ROOT_DIR_PATH = Path() / "data"
 SIM_ID = 0
@@ -32,30 +35,6 @@ if __name__ == "__main__":
     # {'morph_iters': 1, 'morph_op_SE_shape': (22, 22), 'blur_kernel_size': (11, 11), 'blur_strengt
     #     h': 2, 'binarize_thresh_low': 110}
 
-    # Obtain the ball's initial position in the video from the user
-    frames = extract_frames_from_vid(ROOT_DIR_PATH / "videos" / video_fname)
-    first_frame = frames[0].copy()
-    first_frame_grey = np.mean(first_frame, -1)
-    click_store = SinglePosStore(first_frame)
-    cv.namedWindow("First Frame")
-    cv.setMouseCallback("First Frame", click_store.img_clicked)
-
-    print(
-        "Click the ball, since it is a streak, click on the end of the streak you believe to be the leading end."
-    )
-
-    while True:
-        # Display the first frame and wait for a keypress
-        cv.imshow("First Frame", first_frame)
-        key = cv.waitKey(1) & 0xFF
-
-        # Press esc to exit or once clicked, exit
-        if key == 27 or click_store.click_pos() is not None:
-            break
-    cv.destroyAllWindows()
-
-    print(f"Initial ball position set to {click_store.click_pos()}")
-
     detector = BallDetector(ROOT_DIR_PATH)
     filtered_dets = detector.get_filtered_ball_detections(
         vid_fname=video_fname,
@@ -72,32 +51,20 @@ if __name__ == "__main__":
         min_det_area=1,
         max_det_area=30,
         disable_progbar=False,
-        init_ball_pos=click_store.click_pos(),
     )
 
-    data_file_path = ROOT_DIR_PATH / "ball_pos" / f"sim_{SIM_ID}.csv"
-    ball_pos_WC = pd.DataFrame(pd.read_csv(data_file_path), columns=["x", "y", "z"])
-    ball_pos_blurred_WC = ball_pos_WC.iloc[
-        N_FRAMES_TO_AVG::N_FRAMES_TO_AVG, :
-    ].reset_index(drop=True)
+    ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVG)
 
     # Obtain true ball positions in image space
     euclid_dists = []
     true_ball_pos_IC = []
     for i in range(len(filtered_dets)):
-        ball_pos_true = np.array(
-            [
-                ball_pos_blurred_WC["x"][i],
-                ball_pos_blurred_WC["y"][i],
-                ball_pos_blurred_WC["z"][i],
-            ]
-        )
         ball_x_ic, ball_y_ic = wc_to_ic(
-            ball_pos_true,
+            ball_pos_true[i],
             [720, 1280],
         )
 
-        true_ball_pos_IC.append((ball_x_ic, ball_y_ic, ball_pos_blurred_WC["z"][i]))
+        true_ball_pos_IC.append((ball_x_ic, ball_y_ic, ball_pos_true[i][2]))
 
         dist_to_true = math.sqrt(
             ((ball_x_ic - filtered_dets[i][0]) ** 2)
@@ -139,11 +106,10 @@ if __name__ == "__main__":
     )
 
     # Quantify z estimate performance in terms of pearson corr
-    ball_true_z = ball_pos_blurred_WC["z"].to_numpy()[:-1]
     z_estimate_corr = (
         pd.DataFrame(
             {
-                "z": ball_true_z,
+                "z": ball_pos_true[:, 2][:-1],
                 "Z Estimate": np.sqrt(np.array([z for _, _, z in filtered_dets])),
             }
         )

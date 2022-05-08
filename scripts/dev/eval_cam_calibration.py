@@ -1,17 +1,12 @@
 import math
 from pathlib import Path
 
-import cv2 as cv
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.signal import savgol_filter
 
-from ai_umpire import BallDetector
 from ai_umpire.util import (
     extract_frames_from_vid,
-    SinglePosStore,
     plot_bb,
     FIELD_BOUNDING_BOXES,
     HALF_COURT_WIDTH,
@@ -20,10 +15,9 @@ from ai_umpire.util import (
     FRONT_WALL_OUT_LINE_HEIGHT,
 )
 from ai_umpire.util.util import (
-    calibrate_camera,
-    FourCoordsStore,
     wc_to_ic,
-    transform_nums_to_range,
+    approximate_homography,
+    get_sim_ball_pos,
 )
 
 ROOT_DIR_PATH: Path = Path() / "data"
@@ -63,108 +57,39 @@ plt.rcParams["figure.figsize"] = (5.5, 4.5)
 
 if __name__ == "__main__":
     video_fname = f"sim_{SIM_ID}.mp4"
-    video_file = ROOT_DIR_PATH / "videos" / video_fname
-
-    # Manually initialise the initial ball position, this will be used for detection filtering and Kalman initialisation
-    # Load first frame of video, so we can get 4 points to approximate the inverse of the camera matrix
-    frames = extract_frames_from_vid(video_file)
-    first_frame = frames[0].copy()
-    first_frame_grey = np.mean(first_frame, -1)
-    click_store = SinglePosStore(first_frame)
-    cv.namedWindow("First Frame")
-    cv.setMouseCallback("First Frame", click_store.img_clicked)
-
-    print(
-        "Click the ball, since it is a streak, click on the end of the streak you believe to be the leading end."
-    )
-
-    while True:
-        # Display the first frame and wait for a keypress
-        cv.imshow("First Frame", first_frame)
-        key = cv.waitKey(1) & 0xFF
-
-        # Press esc to exit or once clicked, exit
-        if key == 27 or click_store.click_pos() is not None:
-            break
-    cv.destroyAllWindows()
-
-    print(f"Initial ball position set to {click_store.click_pos()}")
+    video_file_path = ROOT_DIR_PATH / "videos" / video_fname
 
     # Get filtered detections from ball detector
-    first_frame_ball_pos = click_store.click_pos()
-    detector = BallDetector(root_dir=ROOT_DIR_PATH)
-    detections_IC = detector.get_filtered_ball_detections(
-        vid_fname=video_fname,
-        sim_id=SIM_ID,
-        morph_op="close",
-        morph_op_iters=1,
-        morph_op_se_shape=(21, 21),
-        blur_kernel_size=(33, 33),
-        blur_sigma=1,
-        binary_thresh=120,
-        disable_progbar=False,
-        struc_el_shape=cv.MORPH_RECT,
-        min_ball_travel_dist=1,
-        max_ball_travel_dist=70,
-        min_det_area=1,
-        max_det_area=30,
-        init_ball_pos=first_frame_ball_pos,
-    )
-    # print(f"Measurements: shape={detections_IC.shape}, measurements: \n{detections_IC}")
+    # detector = BallDetector(root_dir=ROOT_DIR_PATH)
+    # detections_IC = detector.get_filtered_ball_detections(
+    #     vid_fname=video_fname,
+    #     sim_id=SIM_ID,
+    #     morph_op="close",
+    #     morph_op_iters=1,
+    #     morph_op_se_shape=(21, 21),
+    #     blur_kernel_size=(33, 33),
+    #     blur_sigma=1,
+    #     binary_thresh=120,
+    #     disable_progbar=False,
+    #     struc_el_shape=cv.MORPH_RECT,
+    #     min_ball_travel_dist=1,
+    #     max_ball_travel_dist=70,
+    #     min_det_area=1,
+    #     max_det_area=30,
+    # )
+    # print(f"Detections: shape={detections_IC.shape}, noisy_gt: \n{detections_IC}")
 
     # Transform z detections_IC to be in the range [-0.5COURT_LENGTH, 0.5COURT_LENGTH]
-    old_z = detections_IC[:, -1]
-    tformed_z = transform_nums_to_range(
-        old_z, [np.min(old_z), np.max(old_z)], [-HALF_COURT_LENGTH, HALF_COURT_LENGTH]
-    )
-    tformed_z = np.reshape(tformed_z, (tformed_z.shape[0], 1))
-    smoothed_tformed_z = savgol_filter(tformed_z.squeeze(), len(tformed_z) // 3 + 1, 3)
+    # old_z = detections_IC[:, -1]
+    # tformed_z = transform_nums_to_range(
+    #     old_z, [np.min(old_z), np.max(old_z)], [-HALF_COURT_LENGTH, HALF_COURT_LENGTH]
+    # )
+    # tformed_z = np.reshape(tformed_z, (tformed_z.shape[0], 1))
+    # smoothed_tformed_z = savgol_filter(tformed_z.squeeze(), len(tformed_z) // 3 + 1, 3)
 
-    # Camera calibration: obtain the coordinates of the 4 corners of the front wall which
-    # will be used to derive the inverse of camera projection matrix for 2D->3D
-    coords_store = FourCoordsStore(first_frame)
-    cv.namedWindow("First Frame")
-    cv.setMouseCallback("First Frame", coords_store.img_clicked)
-
-    print(
-        "Double-click at these locations on the front wall in the order presented:\n"
-        "   1. Front Wall Line Left\n"
-        "   2. Service Line Left\n"
-        "   3. Front Wall Line Right\n"
-        "   4. Service Line Left"
-    )
-
-    while True:
-        # Display the image and wait for either exit via escape key or 4 coordinates clicked
-        cv.imshow("First Frame", first_frame)
-        key = cv.waitKey(1) & 0xFF
-
-        if key == ord("c") or coords_store.click_pos().shape[0] == 4:
-            break
-    cv.destroyAllWindows()
-
-    front_wall_image_coords = coords_store.click_pos()
-
-    print(
-        f"""Image coordinates of the four corners of the Front-Wall set to:
-        Front Wall Line Left  = {front_wall_image_coords[0]} 
-        Service Line Left     = {front_wall_image_coords[1]} 
-        Front Wall Line Right = {front_wall_image_coords[2]}
-        Service Line Left     = {front_wall_image_coords[3]}"""
-    )
-
-    # Get true ball positions (output at time of simulation data exporting)
-    BALL_POS_TRUE = ROOT_DIR_PATH / "ball_pos" / f"sim_{SIM_ID}.csv"
-    ball_pos_WC = pd.DataFrame(pd.read_csv(BALL_POS_TRUE), columns=["x", "y", "z"])
-
-    # Get position of ball in frames (different from true pos due to blurring by averaging frames)
-    ball_pos_frames_WC = ball_pos_WC.iloc[
-        N_FRAMES_TO_AVERAGE::N_FRAMES_TO_AVERAGE, :
-    ].reset_index(drop=True)
-
-    x = ball_pos_frames_WC["x"]
-    y = ball_pos_frames_WC["y"]
-    z = ball_pos_frames_WC["z"]
+    ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
+    print(f"ball pos true shape = {ball_pos_true.shape}")
+    print(ball_pos_true)
 
     # plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), smoothed_tformed_z, label="Smoothed")
     # plt.plot(np.linspace(0, 10, len(smoothed_tformed_z)), tformed_z, label="Not Smoothed")
@@ -172,67 +97,67 @@ if __name__ == "__main__":
     # plt.legend()
     # plt.tight_layout()
     # plt.show()
+    frames = extract_frames_from_vid(video_file_path, disable_progbar=True)
+    first_frame = frames[0].copy()
 
     # Derive projection matrix using 4 known image coordinates and their corresponding world coordinates
-    cam_intrinsics, rot_mtx, t_vec = calibrate_camera(
-        FRONT_WALL_WORLD_COORDS, front_wall_image_coords, first_frame_grey.shape
-    )
+    # cam_intrinsics, rot_mtx, t_vec = calibrate_camera(
+    #     FRONT_WALL_WORLD_COORDS, front_wall_image_coords, first_frame_grey.shape
+    # )
 
-    h, _ = cv.findHomography(
-        front_wall_image_coords, FRONT_WALL_WORLD_COORDS, method=cv.RANSAC
-    )
+    h = approximate_homography(video_path=video_file_path)
 
     gt_reprojected = []
-    det_projected = []
+    # det_projected = []
     gt_reproj_mean_error = 0.0
-    det_proj_mean_error = 0.0
-    for i in range(len(detections_IC)):
+    # det_proj_mean_error = 0.0
+    for i in range(ball_pos_true.shape[0]):
         # Project true ball positions from world coordinates to image coordinates
-        pos_wc = np.array([x[i], y[i], z[i]])
-        pos_ic = wc_to_ic(pos_wc, list(first_frame.shape[:2]))
-        gt_xy_homog = np.reshape(np.append(pos_ic, 1), (3, 1))
+        gt_pos_wc = ball_pos_true[i]
+        gt_pos_ic = wc_to_ic(gt_pos_wc, list(first_frame.shape[:-1]))
+        gt_xy_homog = np.reshape(np.append(gt_pos_ic, 1), (3, 1))
 
         # Homogenise detection
-        det_x = detections_IC[i][0]
-        det_y = detections_IC[i][1]
-        det_xy_homog = np.reshape(np.append([det_x, det_y], 1), (3, 1))
+        # det_x = detections_IC[i][0]
+        # det_y = detections_IC[i][1]
+        # det_xy_homog = np.reshape(np.append([det_x, det_y], 1), (3, 1))
 
-        scale = 1  # Scale constant for homography
+        scale = 5  # Scale constant for homography
 
         # OpenCV homography on true pos
         reproj_pt = h @ gt_xy_homog
         reproj_pt /= reproj_pt[-1]
         reproj_pt *= scale
-        reproj_pt[-1] = z[i]
+        reproj_pt[-1] = gt_pos_wc[-1]
 
         # OpenCV homography on detections
-        det_proj_pt = h @ det_xy_homog
-        det_proj_pt /= det_proj_pt[-1]
-        det_proj_pt *= scale
-        det_proj_pt[-1] = z[i]
+        # det_proj_pt = h @ det_xy_homog
+        # det_proj_pt /= det_proj_pt[-1]
+        # det_proj_pt *= scale
+        # det_proj_pt[-1] = gt_pos_wc[-1]
 
         # Calculate error in projection/reprojection
         reproj_error = math.sqrt(
-            ((x[i] - reproj_pt[0]) ** 2)
-            + ((y[i] - reproj_pt[1]) ** 2)
-            + ((z[i] - reproj_pt[2]) ** 2)
+            ((gt_pos_wc[0] - reproj_pt[0]) ** 2)
+            + ((gt_pos_wc[1] - reproj_pt[1]) ** 2)
+            + ((gt_pos_wc[2] - reproj_pt[2]) ** 2)
         )
-        det_proj_error = math.sqrt(
-            ((x[i] - det_proj_pt[0]) ** 2)
-            + ((y[i] - det_proj_pt[1]) ** 2)
-            + ((z[i] - det_proj_pt[2]) ** 2)
-        )
+        # det_proj_error = math.sqrt(
+        #     ((gt_pos_wc[0] - det_proj_pt[0]) ** 2)
+        #     + ((gt_pos_wc[1] - det_proj_pt[1]) ** 2)
+        #     + ((gt_pos_wc[2] - det_proj_pt[2]) ** 2)
+        # )
 
         gt_reprojected.append(reproj_pt)
-        det_projected.append(det_proj_pt)
-        gt_reproj_mean_error += reproj_error / len(x)
-        det_proj_mean_error += det_proj_error / len(x)
+        # det_projected.append(det_proj_pt)
+        gt_reproj_mean_error += reproj_error / ball_pos_true.shape[0]
+        # det_proj_mean_error += det_proj_error / ball_pos_true.shape[0]
 
     gt_reprojected = np.array(gt_reprojected).squeeze()
-    det_projected = np.array(det_projected).squeeze()
+    # det_projected = np.array(det_projected).squeeze()
 
     print(f"GTs reprojection error = {gt_reproj_mean_error:.2f}m")
-    print(f"Dets. projection error = {det_proj_mean_error:.2f}m")
+    # print(f"Dets. projection error = {det_proj_mean_error:.2f}m")
 
     fig = plt.figure()
     ax = Axes3D(fig, elev=15, azim=-140, auto_add_to_figure=False)
@@ -257,9 +182,9 @@ if __name__ == "__main__":
             )
 
     ax.plot3D(
-        x,
-        y,
-        z,
+        ball_pos_true[:, 0],
+        ball_pos_true[:, 1],
+        ball_pos_true[:, 2],
         "-o",
         label="GT",
         alpha=0.5,
