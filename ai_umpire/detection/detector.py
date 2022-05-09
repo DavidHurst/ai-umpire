@@ -6,6 +6,7 @@ from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from ai_umpire.util import (
@@ -16,6 +17,8 @@ from ai_umpire.util import (
     apply_morph_op,
 )
 from ai_umpire.util.util import get_init_ball_pos
+
+plt.rcParams["figure.figsize"] = (8, 4.5)
 
 
 class BallDetector:
@@ -31,14 +34,31 @@ class BallDetector:
         morph_op: str,
         morph_op_iters: int,
         morph_op_se_shape: Tuple[int, int],
-        struc_el_shape: np.ndarray,
+        struc_el: np.ndarray,
         blur_kernel_size: Tuple[int, int],
         blur_sigma: int,
         binary_thresh: int,
         *,
         disable_progbar: bool = False,
         sim_id: int,
+        visualise: bool = False,
     ) -> List[List]:
+        """
+        Extracts frames from given video, applies Gaussian blur, differences then binarizes frames finally applying the
+        specified morphological operation to each processed frame which then have their contours extracted and returned.
+        :param vid_fname: The video to detect ball candidates in
+        :param morph_op: The morphological operation to apply
+        :param morph_op_iters: The number of iterations of the morphological operator to perform
+        :param morph_op_se_shape: The shape of the morphological operator's structuring element
+        :param struc_el: The structuring element to use for the morphological operation
+        :param blur_kernel_size: The size of the kernel to use for Gaussian blurring
+        :param blur_sigma: The effective strength of the Gaussian blurring to apply
+        :param binary_thresh: The minimum pixel intensity threshold to use for binarization
+        :param disable_progbar: Disables display of the progress bar if set to True
+        :param sim_id: The id of the synthetic video used
+        :param visualise: Shows the detection process including preprocessing and final detected candidates if True
+        :return: All detections in each frame
+        """
         detections: List[List] = []
         # Extract frames from video
         vid_path: Path = self._vid_dir / vid_fname
@@ -46,28 +66,35 @@ class BallDetector:
             vid_path, disable_progbar=disable_progbar
         )
 
-        # Preprocess frames
+        # Blur all frames
         blurred_frames: np.ndarray = blur_frames(
             video_frames,
             blur_kernel_size,
             blur_sigma,
             disable_progbar=disable_progbar,
         )
+
+        # Difference frames to extract foreground
         fg_seg_frames: np.ndarray = difference_frames(
             blurred_frames, disable_progbar=disable_progbar
         )
+
+        # Binarize all frames
         binary_frames: np.ndarray = binarize_frames(
             fg_seg_frames, binary_thresh, disable_progbar=disable_progbar
         )
+
+        # Apply morphological operator to all frames
         morph_op_frames: np.ndarray = apply_morph_op(
             binary_frames,
             morph_op,
             morph_op_iters,
             morph_op_se_shape,
-            struc_el=struc_el_shape,
+            struc_el=struc_el,
             disable_progbar=disable_progbar,
         )
 
+        # Apply contour detection and store all detections in each frame
         for i in tqdm(
             range(morph_op_frames.shape[0]),
             desc=f"Localising ball (contour det.)",
@@ -99,45 +126,33 @@ class BallDetector:
 
                 detections.append(estimated_pos)
 
-                # display_im = cv.imread(
-                #     str(
-                #         self._frames_dir
-                #         / f"sim_{sim_id}"
-                #         / f"frame{str(i).zfill(5)}.jpg"
-                #     )
-                # )
-                # cv.drawContours(display_im, contours, -1, (0, 0, 255), 2)
-                # # cv.imshow(f"Frame #{i} - Contours", display_im)
-                # # cv.imshow(f"Frame #{i} - Differenced", fg_seg_frames[i])
-                # # cv.imshow(f"Frame #{i} Features", morph_op_frames[i])
-                # # cv.waitKey(0)
-                # fig, axes = plt.subplots(1, 4, figsize=(15, 3))
-                # axes[0].imshow(cv.cvtColor(fg_seg_frames[i], cv.COLOR_BGR2RGB))  # , cmap="gray", vmin=0, vmax=255)
-                # axes[1].imshow(binary_frames[i], cmap="gray", vmin=0, vmax=1)
-                # axes[2].imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
-                # axes[3].imshow(
-                #     cv.cvtColor(display_im, cv.COLOR_BGR2RGB)
-                # )
-                # titles = ["Diff", "Binary", "Morph. Close", "Contours"]
-                # for k, ax in enumerate(axes):
-                #     ax.axis("off")
-                #     ax.set_title(titles[k])
+                if visualise:
+                    cv.drawContours(video_frames[i], contours, -1, (0, 0, 255), 2)
+                    plt.imshow(
+                        cv.cvtColor(fg_seg_frames[i], cv.COLOR_BGR2RGB)
+                    )  # , cmap="gray", vmin=0, vmax=255)
+                    plt.axis("off")
+                    plt.tight_layout()
+                    plt.show()
 
-                # if i == 3:
-                #     cv.imwrite(f'./real_vid_frame_{i}.jpg', video_frames[i])
-                #
-                # plt.imshow(cv.cvtColor(video_frames[i], cv.COLOR_BGR2RGB))
-                # plt.axis("off")
-                # plt.tight_layout()
-                # # plt.savefig(f"detection{str(i).zfill(2)}.png")
-                # plt.show()
+                    plt.imshow(binary_frames[i], cmap="gray", vmin=0, vmax=1)
+                    plt.axis("off")
+                    plt.tight_layout()
+                    plt.show()
+
+                    plt.imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
+                    plt.axis("off")
+                    plt.tight_layout()
+                    plt.show()
+
+                    plt.imshow(cv.cvtColor(video_frames[i], cv.COLOR_BGR2RGB))
+                    plt.axis("off")
+                    plt.tight_layout()
+                    plt.show()
             else:
-                # No detections, worst values, position miles away from anywhere on the screen
-                # and area infinitely large when ball should be small
-                print(f"No detections frame #{i}")
+                # No detections, indicator values used for filtering
                 detections.append([(-1, -1, -1)])
 
-        # ToDo: convert to numpy array
         self._all_detections = detections
         return detections
 
@@ -285,24 +300,31 @@ class BallDetector:
         max_det_area: float,
         *,
         disable_progbar: bool = False,
+        visualise: bool = False,
         sim_id: int,
     ) -> np.ndarray:
+        """
+        Returns a single detection per frame by filtering all detections in each frame by candidate size and speed
+        """
 
+        # Get all ball detection candidates
         self.get_ball_detections(
             vid_fname=vid_fname,
             morph_op=morph_op,
             morph_op_iters=morph_op_iters,
             morph_op_se_shape=morph_op_se_shape,
-            struc_el_shape=struc_el_shape,
+            struc_el=struc_el_shape,
             blur_kernel_size=blur_kernel_size,
             blur_sigma=blur_sigma,
             binary_thresh=binary_thresh,
             disable_progbar=disable_progbar,
             sim_id=sim_id,
+            visualise=visualise,
         )
 
         init_ball_pos = get_init_ball_pos(self._vid_dir, vid_fname)
 
+        # Filter detections using the user provided initial ball position
         filtered_dets = self._filter_ball_detections(
             sim_id=sim_id,
             frame_detections=self._all_detections,

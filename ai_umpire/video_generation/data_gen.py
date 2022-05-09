@@ -17,6 +17,11 @@ class VideoGenerator:
         self._sim_frames_dir: Path = self._root_dir / "frames"
 
     def _apply_motion_blur(self, n_frames_avg: int, sim_id: int) -> None:
+        """
+        Applies motion blur to the generated video images by averaging images
+        :param n_frames_avg: How many images to average
+        :param sim_id: The id number of the simulation to which the images correspond
+        """
         logging.info("Blurring frames...")
         blurred_frames_out_dir: Path = self._sim_frames_dir / f"sim_{sim_id}"
         try:
@@ -75,6 +80,11 @@ class VideoGenerator:
         sim_id: int,
         desired_fps: int = 50,
     ) -> None:
+        """
+        Encode the blurred frames as a .mp4 video and saves it to file
+        :param sim_id: The id number of the simulation to which the images correspond
+        :param desired_fps: The desired frames per second of the output video
+        """
         logging.info("Converting blurred frames to video...")
         sim_rendered_images_dir_path: Path = (
             self._root_dir / "generated_povray" / f"sim_{sim_id}_povray" / "anim"

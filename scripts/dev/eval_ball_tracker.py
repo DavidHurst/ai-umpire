@@ -1,3 +1,6 @@
+"""
+Evaluates the performance of the ball tracker
+"""
 import math
 from pathlib import Path
 
@@ -131,6 +134,9 @@ if __name__ == "__main__":
         tracking_errs.append(tracking_error)
         noisy_gt_errs.append(noisy_gt_error)
     state_pos_preds = np.array(state_pos_preds)
+
+    print(f"Num KF outputs = {len(tracking_errs)}")
+    print(f"Measurements shape = {ball_pos_true.shape}")
 
     print(f"Mean tracking error    = {sum(tracking_errs) / len(tracking_errs):.4f}")
     print(f"Mean tracking error: x = {sum(tracking_errs_x) / len(tracking_errs_x):.4f}")

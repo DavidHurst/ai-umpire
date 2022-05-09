@@ -1,3 +1,6 @@
+"""
+Evaluates the performance of the trajectory interpretation process
+"""
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +17,7 @@ N_RENDERED_IMAGES: int = int(SIM_LENGTH / SIM_STEP_SIZE)
 DESIRED_FPS: int = 50
 N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     vid_dir_path = ROOT_DIR_PATH / "videos"
     vid_fname = f"sim_{SIM_ID}.mp4"
     ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
@@ -77,8 +80,8 @@ if __name__ == '__main__':
     )
 
     ti = TrajectoryInterpreter(
-        kalman_filter=kf, n_dim_samples=[5, 3, 5], n_std_devs_to_sample=1
+        kalman_filter=kf, n_dim_samples=[8, 4, 8], n_std_devs_to_sample=1
     )
-    trajectory_label = ti.classify_trajectory(0.65, visualise=False)
+    trajectory_label = ti.classify_trajectory(0.65, visualise=True)
 
     print(f"The trajectory has been interpreted as - {trajectory_label}")

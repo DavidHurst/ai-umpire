@@ -59,6 +59,17 @@ class TrajectoryInterpreter:
         save: bool = False,
         display: bool = False,
     ) -> None:
+        """
+        Show the court bounding boxes, the measurements and the predicted position of the ball as well as each bounding
+        box's collision probability with the ball
+        :param mu: The predicted ball position
+        :param show_sample_points: Show the sample points used to calculate the collision probabilities
+        :param sample_points: The same points used to calculate the collision probabilities
+        :param bbs_to_show: Which bounding boxes to show
+        :param show_bb_verts: Whether to show the vertices of the bounding boxes
+        :param save: Whether to save the visualisation image to file
+        :param display: Whether to show the visualisation
+        """
         if bbs_to_show not in ["all", "out", "in"]:
             raise ValueError(
                 "Options for bbs to show are: ['all', 'out_bbs', 'in_bbs']"
@@ -234,7 +245,9 @@ class TrajectoryInterpreter:
         ]
 
         # Generate grid of sample points
-        sample_points = gen_grid_of_points(mu[:3], self._dim_samples, sampling_area_size)
+        sample_points = gen_grid_of_points(
+            mu[:3], self._dim_samples, sampling_area_size
+        )
 
         # Generate sample points' probabilities given KF internal parameters for each bounding box
         sample_points_probs = [
@@ -269,20 +282,23 @@ class TrajectoryInterpreter:
         return self._most_likely_collision(self._kf.get_t_step() - 1)
 
     def _most_likely_collision(self, measurement_num: int) -> Tuple[float, str]:
+        """
+        Returns the bounding box with the highest probability of colliding with the ball given a specific measurement
+        """
         collision_prob = 0.0
-        collision_bb = None
+        first_bb_name = list(self._bb_collision_probs)[0]
+        collision_bb_name = first_bb_name  # Default to first bb in dict
 
+        # Search all collision probabilities with each bounding box and return the bb with the highest
         for bb_name in FIELD_BOUNDING_BOXES.keys():
             bb_collision_prob = self._bb_collision_probs[bb_name][measurement_num]
             if bb_collision_prob > collision_prob:
                 collision_prob = bb_collision_prob
-                collision_bb = bb_name
+                collision_bb_name = bb_name
 
-        if collision_bb is None:
-            return 0.0, "none"
-
-        if collision_bb == "back_wall_out":
+        # Double probability for walls that are not the back wall out of court bb
+        if collision_bb_name == "back_wall_out":
             collision_prob = self._bb_collision_probs["back_wall_out"][measurement_num]
             return collision_prob, "back_wall_out"
         else:
-            return collision_prob * 2, collision_bb
+            return collision_prob * 2, collision_bb_name

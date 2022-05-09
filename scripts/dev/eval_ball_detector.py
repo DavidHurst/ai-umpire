@@ -1,3 +1,6 @@
+"""
+Evaluates the performance of the ball detector
+"""
 import math
 from pathlib import Path
 
@@ -30,19 +33,14 @@ if __name__ == "__main__":
     if not (VID_DIR_PATH / video_fname).exists():
         raise FileNotFoundError(f"Video file for sim ID {SIM_ID}not found.")
 
-    # {'morph_iters': 1, 'morph_op_SE_shape': (20, 20), 'blur_kernel_size': (33, 33), 'blur_strengt
-    #     h': 1, 'binarize_thresh_low': 110}
-    # {'morph_iters': 1, 'morph_op_SE_shape': (22, 22), 'blur_kernel_size': (11, 11), 'blur_strengt
-    #     h': 2, 'binarize_thresh_low': 110}
-
     detector = BallDetector(ROOT_DIR_PATH)
     filtered_dets = detector.get_filtered_ball_detections(
         vid_fname=video_fname,
         sim_id=SIM_ID,
         morph_op="close",
         morph_op_iters=1,
-        morph_op_se_shape=(21, 21),
-        blur_kernel_size=(33, 33),
+        morph_op_se_shape=(20, 20),
+        blur_kernel_size=(21, 21),
         blur_sigma=1,
         binary_thresh=120,
         struc_el_shape=cv.MORPH_RECT,
@@ -51,6 +49,7 @@ if __name__ == "__main__":
         min_det_area=1,
         max_det_area=30,
         disable_progbar=False,
+        visualise=True,
     )
 
     ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVG)

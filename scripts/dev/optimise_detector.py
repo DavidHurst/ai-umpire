@@ -1,3 +1,6 @@
+"""
+Performs random search of the ball detector's hyperparameters to find optimal values
+"""
 import math
 import random
 from pathlib import Path
@@ -25,6 +28,8 @@ N_FRAMES_TO_AVG = int(N_RENDERED_FRAMES / DESIRED_FPS)
 DIST_PENALTY = 1000
 Z_ESTIMATE_PENALTY = 250
 
+plt.rcParams["figure.figsize"] = (8, 4.5)
+
 
 def eval_detector(
     morph_iters: int,
@@ -45,8 +50,9 @@ def eval_detector(
         blur_kernel_size=blur_kernel_size,
         blur_sigma=blur_strength,
         binary_thresh=binarize_thresh_low,
-        struc_el_shape=cv.MORPH_RECT,
+        struc_el=cv.MORPH_RECT,
         disable_progbar=True,
+        visualise=visualise,
     )
 
     # Measure performance of detector, metric is Euclidean distance for x and y,
@@ -162,7 +168,7 @@ if __name__ == "__main__":
         N_FRAMES_TO_AVG::N_FRAMES_TO_AVG, :
     ].reset_index(drop=True)
 
-    # Perform random search of hyperparameters
+    # Generate distributions for random search
     rng = np.random.default_rng()
 
     morph_iters_set_set = list(rng.integers(1, 3, 3))
@@ -211,16 +217,14 @@ if __name__ == "__main__":
 
     _, _, _ = eval_detector(
         morph_iters=1,
-        morph_op_SE_shape=(21, 21),
-        blur_kernel_size=(33, 33),
-        blur_strength=1,
+        morph_op_SE_shape=(20, 20),
+        blur_kernel_size=(11, 11),
+        blur_strength=2,
         binarize_thresh_low=120,
         visualise=True,
     )
 
-    exit()
-
-    # Scalarise optimisation objectives to remove the need for multi-objective optimisation, maximising objective here
+    # Perform random search using generated distributions, keeping track of best hparam configuration
     scalarised_objective = float("-inf")
     for morph_iters in morph_iters_set_set:
         for SE_shape in morph_op_SE_shape_set:

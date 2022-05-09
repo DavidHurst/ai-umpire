@@ -166,6 +166,13 @@ class MatchSimulator:
     def run_sim(
         self, duration: float, export: bool = True, visualise: bool = False
     ) -> List[List]:
+        """
+        Use the PyChrono library to run the simulation with the parameters and objects set up in this objects init
+        :param duration: Duration of simulation, in seconds
+        :param export: Export simulation states to file
+        :param visualise: Visualise using the PhChrono visualiser
+        :return: The ball positions over time
+        """
         if not visualise and not export:
             e: ValueError = ValueError(
                 "Simulation did not run, visualise and export both disabled."
@@ -183,6 +190,7 @@ class MatchSimulator:
         ]
         ball_pos: List[List[float, float, float]]
 
+        # Export the ball positions over time and the simulation states
         if export:
             ball_pos: List[List[float, float, float]] = [[], [], []]
             logging.info("Simulating, rendering and exporting.")
@@ -255,18 +263,6 @@ class MatchSimulator:
                 vis_app.DrawAll()
                 vis_app.DoStep()
                 vis_app.EndScene()
-
-                # self._sys.GetContactContainer().ReportAllContacts(contact_reporter)
-
-                # # Emulate random player movement
-                # if self._player1.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                #     self._player1.SetPos_dt(random.choice(random_moves))
-                #
-                # if self._player2.GetPos_dt() <= chrono.ChVectorD(0, 0, 0):
-                #     self._player2.SetPos_dt(random.choice(random_moves))
-                #
-                # if self.get_sim_time() >= duration:
-                #     vis_app.SetPaused(True)
 
         # Save ball pos to file
         if export:

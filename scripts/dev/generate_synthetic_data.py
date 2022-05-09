@@ -1,3 +1,7 @@
+"""
+Generates the synthetic videos used for development and evaluation of the system
+"""
+
 from pathlib import Path
 from typing import List
 
@@ -7,6 +11,7 @@ import pandas as pd
 import pychrono as chrono
 from matplotlib import pyplot as plt
 
+from ai_umpire import MatchSimulator, VideoGenerator
 from ai_umpire.util import wc_to_ic
 
 ROOT_DIR_PATH: Path = Path() / "data"
@@ -37,44 +42,44 @@ if __name__ == "__main__":
     ]
 
     # Run simulations
-    # for i in range(1, 2):
-    #     # Check no simulation data has be stored for this sim id
-    #     pov_data_file = ROOT_DIR_PATH / "generated_povray" / f"sim_{i}_povray"
-    #     if pov_data_file.exists():
-    #         raise FileExistsError(
-    #             f"Simulation ID {i} already has simulation data generated."
-    #         )
-    #
-    #     # Run simulation
-    #     sim = MatchSimulator(
-    #         sim_id=i,
-    #         root=ROOT_DIR_PATH,
-    #         sim_step_sz=SIM_STEP_SIZE,
-    #         ball_init_pos=ball_start_positions[i],
-    #         ball_vel=ball_start_velocities[i],
-    #         ball_acc=ball_start_accelerations[i],
-    #         ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
-    #         p1_init_x=p1_start_positions[i][0],
-    #         p1_init_z=p1_start_positions[i][1],
-    #         p1_vel=p1_start_velocities[i],
-    #         p2_init_x=p2_start_positions[i][0],
-    #         p2_init_z=p2_start_positions[i][1],
-    #         p2_vel=p2_start_velocities[i],
-    #         output_res=(1280, 720),
-    #     )
-    #     sim.run_sim(SIM_LENGTH) #, export=False, visualise=True)
+    for i in range(1, 2):
+        # Check no simulation data has be stored for this sim id
+        pov_data_file = ROOT_DIR_PATH / "generated_povray" / f"sim_{i}_povray"
+        if pov_data_file.exists():
+            raise FileExistsError(
+                f"Simulation ID {i} already has simulation data generated."
+            )
+
+        # Run simulation
+        sim = MatchSimulator(
+            sim_id=i,
+            root=ROOT_DIR_PATH,
+            sim_step_sz=SIM_STEP_SIZE,
+            ball_init_pos=ball_start_positions[i],
+            ball_vel=ball_start_velocities[i],
+            ball_acc=ball_start_accelerations[i],
+            ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
+            p1_init_x=p1_start_positions[i][0],
+            p1_init_z=p1_start_positions[i][1],
+            p1_vel=p1_start_velocities[i],
+            p2_init_x=p2_start_positions[i][0],
+            p2_init_z=p2_start_positions[i][1],
+            p2_vel=p2_start_velocities[i],
+            output_res=(1280, 720),
+        )
+        sim.run_sim(SIM_LENGTH)  # , export=False, visualise=True)
 
     # Render videos using simulation data
-    # for i in range(1):
-    #     video_fname = f"sim_{i}.mp4"
-    #     video_file_path = ROOT_DIR_PATH / "videos" / video_fname
-    #     # Check no video has been generated for this sim id
-    #     if video_file_path.exists():
-    #         raise FileExistsError(f"Video already encoded for Simulation ID {i}.")
-    #
-    #     # Generate video from images rendered by POV Ray of
-    #     vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
-    #     vid_gen.convert_frames_to_vid(i, DESIRED_FPS)
+    for i in range(1):
+        video_fname = f"sim_{i}.mp4"
+        video_file_path = ROOT_DIR_PATH / "videos" / video_fname
+        # Check no video has been generated for this sim id
+        if video_file_path.exists():
+            raise FileExistsError(f"Video already encoded for Simulation ID {i}.")
+
+        # Generate video from images rendered by POV Ray of
+        vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
+        vid_gen.convert_frames_to_vid(i, DESIRED_FPS)
 
     # Visually verify correct generation, plotted ball position should align with ball in frame
     for i in range(1):

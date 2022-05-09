@@ -1,3 +1,6 @@
+"""
+Evaluates the performance of the camera calibration phase and, necessarily, the approximated homography
+"""
 import math
 from pathlib import Path
 
@@ -71,7 +74,7 @@ if __name__ == "__main__":
     #     blur_sigma=1,
     #     binary_thresh=120,
     #     disable_progbar=False,
-    #     struc_el_shape=cv.MORPH_RECT,
+    #     struc_el=cv.MORPH_RECT,
     #     min_ball_travel_dist=1,
     #     max_ball_travel_dist=70,
     #     min_det_area=1,

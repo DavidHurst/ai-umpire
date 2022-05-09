@@ -30,7 +30,7 @@ if __name__ == "__main__":
         blur_kernel_size=(41, 41),
         blur_sigma=3,
         binary_thresh=120,
-        struc_el_shape=cv.MORPH_RECT,
+        struc_el=cv.MORPH_RECT,
     )
     # filtered_dets = detector.get_filtered_ball_detections(
     #     vid_fname=video_fname,
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     #     blur_kernel_size=(11, 11),
     #     blur_sigma=4,
     #     binary_thresh=130,
-    #     struc_el_shape=cv.MORPH_RECT,
+    #     struc_el=cv.MORPH_RECT,
     #     min_ball_travel_dist=1,
     #     max_ball_travel_dist=70,
     #     min_det_area=1,
