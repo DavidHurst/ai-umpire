@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from ai_umpire import KalmanFilter, TrajectoryInterpreter
-from ai_umpire.util import get_sim_ball_pos, approximate_homography, get_init_ball_pos
+from ai_umpire.util import load_sim_ball_pos, approximate_homography, get_init_ball_pos
 
 ROOT_DIR_PATH = Path() / "data"
 SIM_ID = 0
@@ -20,7 +20,7 @@ N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
 if __name__ == "__main__":
     vid_dir_path = ROOT_DIR_PATH / "videos"
     vid_fname = f"sim_{SIM_ID}.mp4"
-    ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
+    ball_pos_true = load_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
 
     rng = np.random.default_rng()
 

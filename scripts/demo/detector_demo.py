@@ -10,7 +10,7 @@ VID_DIR_PATH: Path = ROOT_DIR_PATH / "videos"
 
 if __name__ == "__main__":
     # Generate video from simulation frames if it does not already exist
-    # video_fname: str = f"sim_{SIM_ID}.mp4"
+    # video_fname: str = f"sim_{i}.mp4"
     video_fname: str = "sim_0_comparable.mp4"
     if not (VID_DIR_PATH / video_fname).exists():
         raise FileNotFoundError(f"Video file for sim ID {SIM_ID}not found.")
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     )
     # filtered_dets = detector.get_filtered_ball_detections(
     #     vid_fname=video_fname,
-    #     sim_id=SIM_ID,
+    #     sim_id=i,
     #     morph_op="close",
     #     morph_op_iters=1,
     #     morph_op_se_shape=(4, 4),

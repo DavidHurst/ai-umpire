@@ -21,7 +21,7 @@ def data_gen_instance() -> VideoGenerator:
     # Teardown
     # if SIM_BLURRED_FRAMES_PATH.exists():
     #     shutil.rmtree(SIM_BLURRED_FRAMES_PATH)
-    # vid_path: Path = VID_DIR / f"sim_{SIM_ID}.mp4"
+    # vid_path: Path = VID_DIR / f"sim_{i}.mp4"
     # if vid_path.exists():
     #     vid_path.unlink()
 

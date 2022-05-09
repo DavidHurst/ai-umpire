@@ -30,7 +30,7 @@ __all__ = [
     "point_bb_collided",
     "transform_nums_to_range",
     "approximate_homography",
-    "get_sim_ball_pos",
+    "load_sim_ball_pos",
     "get_init_ball_pos",
 ]
 
@@ -530,7 +530,7 @@ def approximate_homography(video_path: Path) -> np.ndarray:
     return h
 
 
-def get_sim_ball_pos(
+def load_sim_ball_pos(
     sim_id: int, root_dir_path: Path, n_frames_to_avg: int
 ) -> np.ndarray:
     """Read the ball positions of the given simulation id from file"""
@@ -556,24 +556,22 @@ def get_init_ball_pos(_vid_dir, video_fname: str) -> Tuple[float, float]:
     frames = extract_frames_from_vid(video_file_path)
     first_frame = frames[0].copy()
     click_store = SinglePosStore(first_frame)
-    cv.namedWindow("First Frame")
-    cv.setMouseCallback("First Frame", click_store.img_clicked)
+    cv.namedWindow("Click on the ball")
+    cv.setMouseCallback("Click on the ball", click_store.img_clicked)
 
-    print(
-        "Click the ball, since it is a streak, click on the end of the streak you believe to be the leading end."
-    )
+    # print(
+    #     "Click the ball, since it is a streak, click on the end of the streak you believe to be the leading end."
+    # )
 
     while True:
         # Display the first frame and wait for a keypress
-        cv.imshow("First Frame", first_frame)
+        cv.imshow("Click on the ball", first_frame)
         key = cv.waitKey(1) & 0xFF
 
         # Press esc to exit or once clicked, exit
         if key == 27 or click_store.click_pos() is not None:
             break
     cv.destroyAllWindows()
-
-    print(f"Initial ball position set to {click_store.click_pos()}")
 
     return click_store.click_pos()
 

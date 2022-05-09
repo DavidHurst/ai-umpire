@@ -12,7 +12,7 @@ from ai_umpire import KalmanFilter
 from ai_umpire.util import (
     FIELD_BOUNDING_BOXES,
     plot_bb,
-    get_sim_ball_pos,
+    load_sim_ball_pos,
     get_init_ball_pos,
     approximate_homography,
 )
@@ -31,7 +31,7 @@ plt.rcParams["figure.figsize"] = (5.5, 4.5)
 if __name__ == "__main__":
     vid_dir_path = ROOT_DIR_PATH / "videos"
     vid_fname = f"sim_{SIM_ID}.mp4"
-    ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
+    ball_pos_true = load_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
 
     rng = np.random.default_rng()
 

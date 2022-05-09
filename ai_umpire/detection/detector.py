@@ -7,6 +7,8 @@ from typing import List, Tuple
 import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from tqdm import tqdm
 
 from ai_umpire.util import (
@@ -40,8 +42,7 @@ class BallDetector:
         binary_thresh: int,
         *,
         disable_progbar: bool = False,
-        sim_id: int,
-        visualise: bool = False,
+        visualise=None,
     ) -> List[List]:
         """
         Extracts frames from given video, applies Gaussian blur, differences then binarizes frames finally applying the
@@ -55,10 +56,12 @@ class BallDetector:
         :param blur_sigma: The effective strength of the Gaussian blurring to apply
         :param binary_thresh: The minimum pixel intensity threshold to use for binarization
         :param disable_progbar: Disables display of the progress bar if set to True
-        :param sim_id: The id of the synthetic video used
-        :param visualise: Shows the detection process including preprocessing and final detected candidates if True
+        :param visualise: Shows the detection process operation selected out of
+                        ["blurred" "fg_seg", "binary", "morph", "contours", "filtering"]
         :return: All detections in each frame
         """
+        if visualise is None:
+            visualise = ["none"]
         detections: List[List] = []
         # Extract frames from video
         vid_path: Path = self._vid_dir / vid_fname
@@ -108,10 +111,10 @@ class BallDetector:
                 estimated_pos = []
                 for c in contours:
                     # Compute contour centroid
-                    M = cv.moments(c)
-                    m00 = M["m00"] + 1e-5  # Add 1e-5 to avoid div by 0
-                    contour_centroid_x = int(M["m10"] / m00)
-                    contour_centroid_y = int(M["m01"] / m00)
+                    m = cv.moments(c)
+                    m00 = m["m00"] + 1e-5  # Add 1e-5 to avoid div by 0
+                    contour_centroid_x = int(m["m10"] / m00)
+                    contour_centroid_y = int(m["m01"] / m00)
 
                     # Compute area of contour
                     contour_area = cv.contourArea(c)
@@ -126,29 +129,36 @@ class BallDetector:
 
                 detections.append(estimated_pos)
 
-                if visualise:
-                    cv.drawContours(video_frames[i], contours, -1, (0, 0, 255), 2)
-                    plt.imshow(
-                        cv.cvtColor(fg_seg_frames[i], cv.COLOR_BGR2RGB)
-                    )  # , cmap="gray", vmin=0, vmax=255)
-                    plt.axis("off")
-                    plt.tight_layout()
-                    plt.show()
+                # Visualise specified operations
+                if "none" not in visualise:
+                    if "blurred" in visualise:
+                        plt.imshow(cv.cvtColor(blurred_frames[i], cv.COLOR_BGR2RGB))
+                        plt.axis("off")
+                        plt.tight_layout()
+                        plt.show()
+                    if "fg_seg" in visualise:
+                        plt.imshow(cv.cvtColor(fg_seg_frames[i], cv.COLOR_BGR2RGB))
+                        plt.axis("off")
+                        plt.tight_layout()
+                        plt.show()
+                    if "binary" in visualise:
+                        plt.imshow(binary_frames[i], cmap="gray", vmin=0, vmax=1)
+                        plt.axis("off")
+                        plt.tight_layout()
+                        plt.show()
 
-                    plt.imshow(binary_frames[i], cmap="gray", vmin=0, vmax=1)
-                    plt.axis("off")
-                    plt.tight_layout()
-                    plt.show()
+                    if "morph" in visualise:
+                        plt.imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
+                        plt.axis("off")
+                        plt.tight_layout()
+                        plt.show()
 
-                    plt.imshow(morph_op_frames[i], cmap="gray", vmin=0, vmax=255)
-                    plt.axis("off")
-                    plt.tight_layout()
-                    plt.show()
-
-                    plt.imshow(cv.cvtColor(video_frames[i], cv.COLOR_BGR2RGB))
-                    plt.axis("off")
-                    plt.tight_layout()
-                    plt.show()
+                    if "contours" in visualise:
+                        cv.drawContours(video_frames[i], contours, -1, (0, 0, 255), 2)
+                        plt.imshow(cv.cvtColor(video_frames[i], cv.COLOR_BGR2RGB))
+                        plt.axis("off")
+                        plt.tight_layout()
+                        plt.show()
             else:
                 # No detections, indicator values used for filtering
                 detections.append([(-1, -1, -1)])
@@ -160,62 +170,52 @@ class BallDetector:
         self,
         frame_detections: List[List],
         init_ball_pos: Tuple[float, float],
-        sim_id: int,
         *,
+        sim_id: int = None,
         min_ball_travel_dist: float = 5,
         max_ball_travel_dist: float = 130,
         min_det_area: float = 2.0,
         max_det_area: float = 65.0,
         disable_progbar: bool = False,
+        visualise=None,
     ) -> List[List]:
+        if visualise is None:
+            visualise = ["none"]
         filtered_dets = []
 
-        def get_frame_detections_com(frame_num: int) -> Tuple[float, float]:
+        def get_frame_detections_com(frame_idx: int) -> Tuple[float, float]:
             """com = Center of Mass"""
-            prev_frame_accepted_dets_x = [x for x, _, _ in filtered_dets[frame_num]]
-            prev_frame_accepted_dets_y = [y for _, y, _ in filtered_dets[frame_num]]
-            com_x = sum(prev_frame_accepted_dets_x) / len(prev_frame_accepted_dets_x)
-            com_y = sum(prev_frame_accepted_dets_y) / len(prev_frame_accepted_dets_y)
+            prev_frame_accepted_dets_x = [x for x, _, _ in filtered_dets[frame_idx]]
+            prev_frame_accepted_dets_y = [y for _, y, _ in filtered_dets[frame_idx]]
+            x_com = sum(prev_frame_accepted_dets_x) / len(prev_frame_accepted_dets_x)
+            y_com = sum(prev_frame_accepted_dets_y) / len(prev_frame_accepted_dets_y)
 
-            return com_x, com_y
+            return x_com, y_com
 
         for i in tqdm(
             range(len(frame_detections)),
             desc=f"Filtering ball detections",
             disable=disable_progbar,
         ):
-            # print(f"Frame #{i}", "-" * 40)
-            # if len(filtered_dets) > 0:
-            #     print(f"Accumulated filtered dets:")
-            #     for d in filtered_dets:
-            #         if len(d) > 1:
-            #             print(" " * 8, f"{len(d)} dets below:")
-            #             for d_ in d:
-            #                 print(" " * 8, d_)
-            #         else:
-            #             print(" " * 4, d)
-            dets = frame_detections[i]
-
             # Filter detections base on their size, i.e. filter out the player detections and noise
-            dets = [(x, y, z) for x, y, z in dets if min_det_area < z < max_det_area]
+            curr_frame_dets = [
+                (x, y, z)
+                for x, y, z in frame_detections[i]
+                if min_det_area < z < max_det_area
+            ]
 
-            # print(
-            #     f">> Num dets filtered by size = {len(frame_detections[i]) - len(dets)}"
-            # )
-            # ROOT_DIR_PATH: Path = Path("C:\\Users\\david\\Data\\AI Umpire DS")
-            # frame_num = f"{i}".zfill(5)
-            # frame_path = (
-            #     ROOT_DIR_PATH / "frames" / f"sim_{sim_id}" / f"frame{frame_num}.jpg"
-            # )
-            # frame = cv.imread(str(frame_path), 1)
-
+            # Compare each detection in the current frame to the filtered detections from the previous frame to find
+            # the detections within the acceptable range of motion
             if i > 0:
                 velocity_constrained_dets = []
-                for curr_frame_det in dets:
-                    for prev_frame_det in filtered_dets[i - 1]:
+                for curr_frame_det in curr_frame_dets:
+                    for prev_frame_filtered_det in filtered_dets[i - 1]:
 
                         curr_x, curr_y = curr_frame_det[0], curr_frame_det[1]
-                        prev_x, prev_y = prev_frame_det[0], prev_frame_det[1]
+                        prev_x, prev_y = (
+                            prev_frame_filtered_det[0],
+                            prev_frame_filtered_det[1],
+                        )
 
                         euclid_dist_between_prev_and_curr_dets = math.sqrt(
                             ((curr_x - prev_x) ** 2) + ((curr_y - prev_y) ** 2)
@@ -230,57 +230,79 @@ class BallDetector:
                             in_acceptable_range_of_motion
                             and curr_frame_det not in filtered_dets[i - 1]
                         ):
-                            # cv.circle(frame, (curr_x, curr_y), 10, (0, 255, 0))
                             velocity_constrained_dets.append(curr_frame_det)
-                            # print(f">> Added {curr_frame_det}")
-                        # else:
-                        # cv.circle(frame, (curr_x, curr_y), 10, (0, 0, 255))
-                if len(velocity_constrained_dets) == 0:
-                    # If no detections satisfy the velocity constraint, add the detection closest to the center of mass of
-                    # the previous frame's acceptable detections
-                    # print(
-                    #     "[i] No dets added, added det closest to center of mass (com) of prev acceptable dets."
-                    # )
 
-                    com_x, com_y = get_frame_detections_com(frame_num=i - 1)
+                # If no detections in the current frame satisfy the velocity constraint, add the dectection closest to
+                # the center of mass of the previous frame's detections
+                if len(velocity_constrained_dets) == 0:
+                    com_x, com_y = get_frame_detections_com(i - 1)
 
                     dets_dist_to_com = [
                         math.sqrt(((x - com_x) ** 2) + ((y - com_y) ** 2))
-                        for x, y, _ in dets
+                        for x, y, _ in frame_detections[i]
                     ]
-                    closest_det = dets[dets_dist_to_com.index(min(dets_dist_to_com))]
+                    closest_det = frame_detections[i][
+                        dets_dist_to_com.index(min(dets_dist_to_com))
+                    ]
                     filtered_dets.append([closest_det])
-
-                    # print(f">> Added {closest_det}")
-
-                    # frame_ = frame.copy()
-                    # cv.circle(frame_, (int(com_x), int(com_y)), 5, (0, 0, 255), -1)
-                    # cv.circle(frame_, (closest_det[0], closest_det[1]), 5, (0, 255, 0))
-                    # cv.imshow(f"Frame #{i} - Center of mass & closest det to com", frame_)
-                    # cv.waitKey(0)
                 else:
                     filtered_dets.append(list(set(velocity_constrained_dets)))
             else:
-                # Find the closest detection to manually initialised initial ball position
+                # Find the closest detection to user provided initial ball position
                 dists = [
                     math.sqrt(
                         ((x - init_ball_pos[0]) ** 2) + ((y - init_ball_pos[1]) ** 2)
                     )
-                    for x, y, _ in dets
+                    for x, y, _ in curr_frame_dets
                 ]
-                closest_det = dets[dists.index(min(dists))]
-
-                # for det in dets:
-                #     if det == closest_det:
-                #         # cv.circle(frame, (det[0], det[1]), 10, (0, 255, 0))
-                #     else:
-                #         # cv.circle(frame, (det[0], det[1]), 10, (0, 0, 255))
-                # print(f">> First frame, adding closest det -> {closest_det}")
+                closest_det = curr_frame_dets[dists.index(min(dists))]
 
                 filtered_dets.append([closest_det])
 
-            # cv.imshow(f"Frame #{i}", frame)
-            # cv.waitKey(0)
+            # Visualise filtered detections
+            if (
+                "none" not in visualise
+                and "filtering" in visualise
+                and sim_id is not None
+            ):
+                # Draw all detections and colour them green if acceptable, red otherwise
+                frame_num = f"{i}".zfill(5)
+                current_frame_path = (
+                    self._root_dir
+                    / "frames"
+                    / f"sim_{sim_id}"
+                    / f"frame{frame_num}.jpg"
+                )
+                curr_frame = cv.imread(str(current_frame_path), 1)
+                for d in filtered_dets[i]:
+                    cv.circle(
+                        curr_frame, (int(d[0]), int(d[1])), int(d[2]), (0, 255, 0), 2
+                    )
+                for d in [
+                    det for det in frame_detections[i] if det not in filtered_dets[i]
+                ]:
+                    pt1 = int(d[0] - d[2]), int(d[1] - d[2])
+                    pt2 = int(d[0] + d[2]), int(d[1] + d[2])
+                    cv.rectangle(curr_frame, pt1, pt2, (0, 0, 255), 2)
+                legend_elements = [
+                    Line2D(
+                        [0],
+                        [0],
+                        marker="o",
+                        color="none",
+                        label="Accepted Det.",
+                        markerfacecolor="none",
+                        markersize=15,
+                        lw=0,
+                        markeredgecolor="g",
+                    ),
+                    Patch(facecolor="none", edgecolor="r", label="Discarded Det."),
+                ]
+                plt.imshow(cv.cvtColor(curr_frame, cv.COLOR_BGR2RGB))
+                plt.legend(handles=legend_elements)
+                plt.axis("off")
+                plt.tight_layout()
+                plt.show()
 
         return filtered_dets
 
@@ -300,7 +322,7 @@ class BallDetector:
         max_det_area: float,
         *,
         disable_progbar: bool = False,
-        visualise: bool = False,
+        visualise=None,
         sim_id: int,
     ) -> np.ndarray:
         """
@@ -308,7 +330,9 @@ class BallDetector:
         """
 
         # Get all ball detection candidates
-        self.get_ball_detections(
+        if visualise is None:
+            visualise = ["none"]
+        all_detections = self.get_ball_detections(
             vid_fname=vid_fname,
             morph_op=morph_op,
             morph_op_iters=morph_op_iters,
@@ -318,7 +342,6 @@ class BallDetector:
             blur_sigma=blur_sigma,
             binary_thresh=binary_thresh,
             disable_progbar=disable_progbar,
-            sim_id=sim_id,
             visualise=visualise,
         )
 
@@ -327,13 +350,14 @@ class BallDetector:
         # Filter detections using the user provided initial ball position
         filtered_dets = self._filter_ball_detections(
             sim_id=sim_id,
-            frame_detections=self._all_detections,
+            frame_detections=all_detections,
             init_ball_pos=init_ball_pos,
             min_ball_travel_dist=min_ball_travel_dist,
             max_ball_travel_dist=max_ball_travel_dist,
             min_det_area=min_det_area,
             max_det_area=max_det_area,
             disable_progbar=disable_progbar,
+            visualise=visualise,
         )
 
         # Temporary solution until KF is used to filter candidate detections:

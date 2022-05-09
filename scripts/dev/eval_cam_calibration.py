@@ -20,7 +20,7 @@ from ai_umpire.util import (
 from ai_umpire.util.util import (
     wc_to_ic,
     approximate_homography,
-    get_sim_ball_pos,
+    load_sim_ball_pos,
 )
 
 ROOT_DIR_PATH: Path = Path() / "data"
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     # detector = BallDetector(root_dir=ROOT_DIR_PATH)
     # detections_IC = detector.get_filtered_ball_detections(
     #     vid_fname=video_fname,
-    #     sim_id=SIM_ID,
+    #     sim_id=i,
     #     morph_op="close",
     #     morph_op_iters=1,
     #     morph_op_se_shape=(21, 21),
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     # tformed_z = np.reshape(tformed_z, (tformed_z.shape[0], 1))
     # smoothed_tformed_z = savgol_filter(tformed_z.squeeze(), len(tformed_z) // 3 + 1, 3)
 
-    ball_pos_true = get_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
+    ball_pos_true = load_sim_ball_pos(SIM_ID, ROOT_DIR_PATH, N_FRAMES_TO_AVERAGE)
     print(f"ball pos true shape = {ball_pos_true.shape}")
     print(ball_pos_true)
 

@@ -23,27 +23,48 @@ N_FRAMES_TO_AVERAGE: int = int(N_RENDERED_IMAGES / DESIRED_FPS)
 START_X_POS: List[int] = [-2, -1, 0, 1]
 START_Z_POS: List[int] = [-2, -1, 0, 1]
 
+plt.rcParams["figure.figsize"] = (8, 4.5)
+
 if __name__ == "__main__":
-    # Define starting positions and velocities of players and ball
+    # Define starting positions and velocities of players and ball for each simulation and therefore video
     ball_start_positions = [
-        chrono.ChVectorD(-1, 0.5, -4.5),
-        chrono.ChVectorD(2.8, 0.2, -4),
+        chrono.ChVectorD(-1.0, 0.5, -4.5),
+        chrono.ChVectorD(2.8, 0.2, -4.0),
+        chrono.ChVectorD(3.0, 0.15, -4.0),
+        chrono.ChVectorD(3.0, 0.15, -4.0),
     ]
-    ball_start_velocities = [chrono.ChVectorD(1, 9, 14), chrono.ChVectorD(-5, 8, 20)]
-    ball_start_accelerations = [chrono.ChVectorD(-1, 2, 3), chrono.ChVectorD(-2, 4, 5)]
+    ball_start_velocities = [
+        chrono.ChVectorD(1, 9, 14),
+        chrono.ChVectorD(-5, 8, 20),
+        chrono.ChVectorD(0, 11, 23),
+        chrono.ChVectorD(0, 4, 11),
+    ]
+    ball_start_accelerations = [
+        chrono.ChVectorD(-1, 2, 3),
+        chrono.ChVectorD(-2, 4, 5),
+        chrono.ChVectorD(0, 4, 5),
+        chrono.ChVectorD(0, 3, 3),
+    ]
 
-    p1_start_positions = [(-2.5, 1.0), (2.0, -4.5)]
-    p1_start_velocities = [chrono.ChVectorD(1, 0, -1.5), chrono.ChVectorD(-2.5, 0, 2)]
+    p1_start_xy = [(-2.5, 1.0), (2.0, -4.5), (-1.5, 1.8), (-1.5, 1.8)]
+    p1_start_velocities = [
+        chrono.ChVectorD(1.0, 0.0, -1.5),
+        chrono.ChVectorD(-2.5, 0.0, 2.0),
+        chrono.ChVectorD(2.0, 0.0, -1.5),
+        chrono.ChVectorD(2.0, 0.0, -1.5),
+    ]
 
-    p2_start_positions = [(2.5, -4.0), (0, -1.5)]
+    p2_start_xy = [(2.5, -4.0), (0.0, -1.5), (2.0, -3.5), (2.0, -3.5)]
     p2_start_velocities = [
-        chrono.ChVectorD(-1, 0, 1.5),
-        chrono.ChVectorD(-2.0, 0.0, -2),
+        chrono.ChVectorD(-1.0, 0.0, 1.5),
+        chrono.ChVectorD(-2.0, 0.0, -2.0),
+        chrono.ChVectorD(-1.5, 0.0, 2.0),
+        chrono.ChVectorD(-1.5, 0.0, 2.0),
     ]
 
     # Run simulations
-    for i in range(1, 2):
-        # Check no simulation data has be stored for this sim id
+    for i in range(4):
+        # Check that no simulation data has be stored for this sim id
         pov_data_file = ROOT_DIR_PATH / "generated_povray" / f"sim_{i}_povray"
         if pov_data_file.exists():
             raise FileExistsError(
@@ -59,18 +80,26 @@ if __name__ == "__main__":
             ball_vel=ball_start_velocities[i],
             ball_acc=ball_start_accelerations[i],
             ball_rot_dt=chrono.ChQuaternionD(0, 0, 0.0436194, 0.9990482),
-            p1_init_x=p1_start_positions[i][0],
-            p1_init_z=p1_start_positions[i][1],
+            p1_init_x=p1_start_xy[i][0],
+            p1_init_z=p1_start_xy[i][1],
             p1_vel=p1_start_velocities[i],
-            p2_init_x=p2_start_positions[i][0],
-            p2_init_z=p2_start_positions[i][1],
+            p2_init_x=p2_start_xy[i][0],
+            p2_init_z=p2_start_xy[i][1],
             p2_vel=p2_start_velocities[i],
             output_res=(1280, 720),
         )
-        sim.run_sim(SIM_LENGTH)  # , export=False, visualise=True)
+        sim.run_sim(SIM_LENGTH)
+
+    exit()
+
+    ###################################################################################################
+    # ToDo: Manually run the generated_porvay .ini file in the POVRay program to generate the frames, #
+    #  (instructions are in the generated_povray directory) then run the rest of this script.         #
+    #  This will be automated in future.                                                              #
+    ###################################################################################################
 
     # Render videos using simulation data
-    for i in range(1):
+    for i in range(4):
         video_fname = f"sim_{i}.mp4"
         video_file_path = ROOT_DIR_PATH / "videos" / video_fname
         # Check no video has been generated for this sim id
@@ -81,8 +110,8 @@ if __name__ == "__main__":
         vid_gen = VideoGenerator(root_dir=ROOT_DIR_PATH)
         vid_gen.convert_frames_to_vid(i, DESIRED_FPS)
 
-    # Visually verify correct generation, plotted ball position should align with ball in frame
-    for i in range(1):
+    # Visually verify correct generation, plotted ball position should be exactly on top of ball in frame
+    for i in range(4):
         # Check that ball data file exists
         data_file_path = ROOT_DIR_PATH / "ball_pos" / f"sim_{i}.csv"
         if not data_file_path.exists():
