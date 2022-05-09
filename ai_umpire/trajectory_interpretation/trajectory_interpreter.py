@@ -17,7 +17,7 @@ from ai_umpire.util import (
     point_bb_collided,
 )
 
-plt.rcParams["figure.figsize"] = (10, 10)
+plt.rcParams["figure.figsize"] = (5.5, 4.5)
 
 
 class TrajectoryInterpreter:
@@ -75,7 +75,7 @@ class TrajectoryInterpreter:
                 "Options for bbs to show are: ['all', 'out_bbs', 'in_bbs']"
             )
         fig = plt.figure()
-        self._ax = Axes3D(fig, elev=20, azim=-140)
+        self._ax = Axes3D(fig, elev=30, azim=-110)
 
         self._ax.grid(False)
         self._ax.set_title(
@@ -161,7 +161,7 @@ class TrajectoryInterpreter:
         visualise: bool = False,
         save: bool = False,
         show_sample_points: bool = False,
-    ) -> Tuple[str, float]:
+    ) -> Tuple[str, float, str]:
         """
         Returns the in/out classification of the trajectory
 
@@ -172,23 +172,26 @@ class TrajectoryInterpreter:
 
         no_probs_recorded = len(list(self._bb_collision_probs.values())[0]) == 0
         if no_probs_recorded:
-            p_out, out_bb_name, frame_out = self.interpret_trajectory(
+            _, _, _ = self.interpret_trajectory(
                 visualise=visualise, save=save, show_sample_points=show_sample_points
             )
-        else:
-            p_out, out_bb_name, frame_out = 0.0, "", 0
 
-            # Scan through stored probability detections_IC and keep track of the highest prob out, bb name and frame
-            for i in tqdm(
-                range(self._n_measurements),
-                desc="Scanning stored collision probabilities",
-            ):
-                for bb_name in FIELD_BOUNDING_BOXES.keys():
-                    bb_out_prob_frame = self._bb_collision_probs[bb_name][i]
-                    if bb_out_prob_frame >= p_out:
-                        p_out, out_bb_name, frame_out = bb_out_prob_frame, bb_name, i
+        p_out, out_bb_name, frame_out = 0.0, "", 0
+        # Scan through stored probability detections_IC and keep track of the highest prob out, bb name and frame
+        for i in tqdm(
+            range(self._n_measurements),
+            desc="Scanning stored collision probabilities",
+        ):
+            for bb_name in FIELD_BOUNDING_BOXES.keys():
+                bb_out_prob_frame = self._bb_collision_probs[bb_name][i]
+                if bb_out_prob_frame >= p_out:
+                    p_out, out_bb_name, frame_out = bb_out_prob_frame, bb_name, i
 
-        return "out" if p_out >= confidence_threshold else "in", p_out
+        return (
+            "out" if p_out >= confidence_threshold else "in",
+            p_out * 2 if out_bb_name != "back_wall_out" else p_out,
+            out_bb_name,
+        )
 
     def interpret_trajectory(
         self,
@@ -209,7 +212,7 @@ class TrajectoryInterpreter:
 
         highest_p_out, out_bb_name, out_frame = 0.0, "", 0
         for i in range(self._n_measurements):
-            p, bb = self.interpret_next_measurement(
+            p, bb = self._interpret_next_measurement(
                 visualise=visualise, save=save, show_sample_points=show_sample_points
             )
             if p >= highest_p_out and FIELD_BOUNDING_BOXES[bb]["in_out"] == "out":
@@ -223,7 +226,7 @@ class TrajectoryInterpreter:
 
         return highest_p_out, out_bb_name, out_frame
 
-    def interpret_next_measurement(
+    def _interpret_next_measurement(
         self,
         *,
         visualise: bool = False,
@@ -296,9 +299,4 @@ class TrajectoryInterpreter:
                 collision_prob = bb_collision_prob
                 collision_bb_name = bb_name
 
-        # Double probability for walls that are not the back wall out of court bb
-        if collision_bb_name == "back_wall_out":
-            collision_prob = self._bb_collision_probs["back_wall_out"][measurement_num]
-            return collision_prob, "back_wall_out"
-        else:
-            return collision_prob * 2, collision_bb_name
+        return collision_prob, collision_bb_name

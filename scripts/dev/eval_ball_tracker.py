@@ -78,6 +78,8 @@ if __name__ == "__main__":
     mu_m = np.zeros((measurements_dim, 1))
     measurement_noise = rng.normal(0, 0.07, size=(measurements_dim, measurements_dim))
     sigma_m = (np.identity(measurements_dim) * 30) + measurement_noise
+    # sigma_m = (np.identity(measurements_dim) * 1) + measurement_noise  # KF trust measurements too much
+    # sigma_m = (np.identity(measurements_dim) * 100) + measurement_noise  # KF trust predictions too much
 
     # print("KF Internal model's parameters".ljust(70, "-"))
     # print(f"psi: \n{psi}:")
@@ -235,7 +237,7 @@ if __name__ == "__main__":
         zdir="y",
     )
     plt.legend()
-    plt.savefig("eval_ball_tracker.png")
+    plt.savefig("eval_ball_tracker_gt_v_pred.png")
     plt.show()
 
     # Plot GT against measurements
@@ -280,6 +282,6 @@ if __name__ == "__main__":
         c="b",
         zdir="y",
     )
-    plt.savefig("eval_ball_tracker.png")
     plt.legend()
+    plt.savefig("eval_ball_tracker_gt_v_meas.png")
     plt.show()

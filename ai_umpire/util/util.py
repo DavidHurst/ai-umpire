@@ -468,7 +468,7 @@ def plot_bb(
             face_center_vert[2],
             face_center_vert[1],
             bb_face_annotation,
-            zdir="y",
+            zdir="x",
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.7),
         )
 
