@@ -97,6 +97,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.legend()
         plt.axis("off")
+        plt.savefig(f"sim_{i}_det_eval.png")
         plt.show()
 
         # Quantify z estimate performance in terms of pearson corr

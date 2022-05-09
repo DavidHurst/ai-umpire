@@ -135,18 +135,28 @@ if __name__ == "__main__":
         noisy_gt_errs.append(noisy_gt_error)
     state_pos_preds = np.array(state_pos_preds)
 
-    print(f"Num KF outputs = {len(tracking_errs)}")
-    print(f"Measurements shape = {ball_pos_true.shape}")
-
-    print(f"Mean tracking error    = {sum(tracking_errs) / len(tracking_errs):.4f}")
-    print(f"Mean tracking error: x = {sum(tracking_errs_x) / len(tracking_errs_x):.4f}")
-    print(f"Mean tracking error: y = {sum(tracking_errs_y) / len(tracking_errs_y):.4f}")
-    print(f"Mean tracking error: z = {sum(tracking_errs_z) / len(tracking_errs_z):.4f}")
-    print(f"Noisy gt error         = {sum(noisy_gt_errs) / len(noisy_gt_errs):.4f}")
+    print(f"Mean tracking error    = {sum(tracking_errs) / len(tracking_errs):.4f}m")
+    print(
+        f"Mean tracking error: x = {sum(tracking_errs_x) / len(tracking_errs_x):.4f}m"
+    )
+    print(
+        f"Mean tracking error: y = {sum(tracking_errs_y) / len(tracking_errs_y):.4f}m"
+    )
+    print(
+        f"Mean tracking error: z = {sum(tracking_errs_z) / len(tracking_errs_z):.4f}m"
+    )
+    print(f"Noisy gt error         = {sum(noisy_gt_errs) / len(noisy_gt_errs):.4f}m")
 
     # Plot tracking error in all axes across time
-    plt.plot(np.arange(0, len(tracking_errs)), tracking_errs, label="Tracking Error")
-    plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
+    plt.plot(
+        np.arange(0, len(tracking_errs)),
+        tracking_errs,
+        label="Tracking Error",
+        marker="o",
+    )
+    plt.plot(
+        np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error", marker="x"
+    )
     plt.ylabel("Error- Euclidean Distance (meters)")
     plt.xlabel("Measurement")
     plt.legend()
@@ -156,13 +166,22 @@ if __name__ == "__main__":
 
     # Plot tracking error per axis across time
     plt.plot(
-        np.arange(0, len(tracking_errs)), tracking_errs_x, label="Tracking Error - X"
+        np.arange(0, len(tracking_errs)),
+        tracking_errs_x,
+        label="Tracking Error - X",
+        marker="o",
     )
     plt.plot(
-        np.arange(0, len(tracking_errs)), tracking_errs_y, label="Tracking Error - Y"
+        np.arange(0, len(tracking_errs)),
+        tracking_errs_y,
+        label="Tracking Error - Y",
+        marker="x",
     )
     plt.plot(
-        np.arange(0, len(tracking_errs)), tracking_errs_z, label="Tracking Error - Z"
+        np.arange(0, len(tracking_errs)),
+        tracking_errs_z,
+        label="Tracking Error - Z",
+        marker="^",
     )
     plt.plot(np.arange(0, len(noisy_gt_errs)), noisy_gt_errs, label="Noise Error")
     plt.ylabel("Error- Euclidean Distance (meters)")
@@ -173,7 +192,7 @@ if __name__ == "__main__":
     plt.show()
 
     fig = plt.figure()
-    ax = Axes3D(fig, elev=15, azim=-140, auto_add_to_figure=False)
+    ax = Axes3D(fig, elev=30, azim=-110, auto_add_to_figure=False)
     fig.add_axes(ax)
 
     ax.grid(False)
@@ -194,6 +213,7 @@ if __name__ == "__main__":
                 show_annotation=False,
             )
 
+    # Plot GT against reprojected GT
     ax.plot3D(
         ball_pos_true[:, 0],
         ball_pos_true[:, 1],
@@ -214,16 +234,52 @@ if __name__ == "__main__":
         c="r",
         zdir="y",
     )
-    # ax.plot3D(
-    #     noisy_gt[:, 0],
-    #     noisy_gt[:, 1],
-    #     noisy_gt[:, 2],
-    #     "-x",
-    #     label="Noisy GT",
-    #     alpha=0.5,
-    #     c="b",
-    #     zdir="y",
-    # )
     plt.legend()
     plt.savefig("eval_ball_tracker.png")
+    plt.show()
+
+    # Plot GT against measurements
+    fig = plt.figure()
+    ax = Axes3D(fig, elev=30, azim=-110, auto_add_to_figure=False)
+    fig.add_axes(ax)
+
+    ax.grid(False)
+    ax.set_xlim3d(-4, 4)
+    ax.set_zlim3d(0, 7)
+    ax.set_ylim3d(-6, 6)
+    ax.set_xlabel("$x$")
+    ax.set_zlabel("$y$")
+    ax.set_ylabel("$z$")
+
+    for bb_name in FIELD_BOUNDING_BOXES.keys():
+        if not bb_name.startswith(("left", "back")):
+            plot_bb(
+                bb_name=bb_name,
+                ax=ax,
+                bb_face_annotation="",
+                show_vertices=False,
+                show_annotation=False,
+            )
+    ax.plot3D(
+        ball_pos_true[:, 0],
+        ball_pos_true[:, 1],
+        ball_pos_true[:, 2],
+        "--",
+        label="GT",
+        alpha=0.5,
+        c="g",
+        zdir="y",
+    )
+    ax.plot3D(
+        noisy_gt[:, 0],
+        noisy_gt[:, 1],
+        noisy_gt[:, 2],
+        "-x",
+        label="Measurements",
+        alpha=0.5,
+        c="b",
+        zdir="y",
+    )
+    plt.savefig("eval_ball_tracker.png")
+    plt.legend()
     plt.show()

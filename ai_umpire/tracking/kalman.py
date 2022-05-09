@@ -127,4 +127,3 @@ class KalmanFilter:
         """
         self.mu = np.append(self.mu[:3].copy(), np.zeros(6)).reshape((9, 1))
         self.cov = np.identity(self.mu.shape[0]) * 100
-        print("KF reset.")

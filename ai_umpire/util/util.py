@@ -501,8 +501,10 @@ def approximate_homography(video_path: Path) -> np.ndarray:
     # Camera calibration: obtain the coordinates of the 4 corners of the front wall which
     # will be used to derive the inverse of camera projection matrix for 2D->3D
     coords_store = FourCoordsStore(first_frame)
-    cv.namedWindow("First Frame")
-    cv.setMouseCallback("First Frame", coords_store.img_clicked)
+    cv.namedWindow("Click on the four specified locations")
+    cv.setMouseCallback(
+        "Click on the four specified locations", coords_store.img_clicked
+    )
 
     print(
         "Double-click at these locations on the front wall in the order presented:\n"
@@ -514,7 +516,7 @@ def approximate_homography(video_path: Path) -> np.ndarray:
 
     while True:
         # Display the image and wait for either exit via escape key or 4 coordinates clicked
-        cv.imshow("First Frame", first_frame)
+        cv.imshow("Click on the four specified locations", first_frame)
         key = cv.waitKey(1) & 0xFF
 
         if key == ord("c") or coords_store.click_pos().shape[0] == 4:
