@@ -64,17 +64,9 @@ FIELD_BOUNDING_BOXES: Dict = {
                     BACK_WALL_OUT_LINE_HEIGHT,
                     -HALF_COURT_LENGTH,
                 ],
-                [
-                    -HALF_COURT_WIDTH - BB_DEPTH,
-                    0,
-                    -HALF_COURT_LENGTH,
-                ],
+                [-HALF_COURT_WIDTH - BB_DEPTH, 0, -HALF_COURT_LENGTH,],
                 [-HALF_COURT_WIDTH, 0, -HALF_COURT_LENGTH],
-                [
-                    -HALF_COURT_WIDTH - BB_DEPTH,
-                    0,
-                    HALF_COURT_LENGTH,
-                ],
+                [-HALF_COURT_WIDTH - BB_DEPTH, 0, HALF_COURT_LENGTH,],
                 [
                     -HALF_COURT_WIDTH - BB_DEPTH,
                     FRONT_WALL_OUT_LINE_HEIGHT,
@@ -96,17 +88,9 @@ FIELD_BOUNDING_BOXES: Dict = {
                     BACK_WALL_OUT_LINE_HEIGHT,
                     -HALF_COURT_LENGTH,
                 ],
-                [
-                    HALF_COURT_WIDTH + BB_DEPTH,
-                    0,
-                    -HALF_COURT_LENGTH,
-                ],
+                [HALF_COURT_WIDTH + BB_DEPTH, 0, -HALF_COURT_LENGTH,],
                 [HALF_COURT_WIDTH, 0, -HALF_COURT_LENGTH],
-                [
-                    HALF_COURT_WIDTH + BB_DEPTH,
-                    0,
-                    HALF_COURT_LENGTH,
-                ],
+                [HALF_COURT_WIDTH + BB_DEPTH, 0, HALF_COURT_LENGTH,],
                 [
                     HALF_COURT_WIDTH + BB_DEPTH,
                     FRONT_WALL_OUT_LINE_HEIGHT,
@@ -169,17 +153,9 @@ FIELD_BOUNDING_BOXES: Dict = {
                     BACK_WALL_OUT_LINE_HEIGHT,
                     -HALF_COURT_LENGTH,
                 ],
-                [
-                    -HALF_COURT_WIDTH - BB_DEPTH,
-                    OUT_BB_MAX_Y,
-                    -HALF_COURT_LENGTH,
-                ],
+                [-HALF_COURT_WIDTH - BB_DEPTH, OUT_BB_MAX_Y, -HALF_COURT_LENGTH,],
                 [-HALF_COURT_WIDTH, OUT_BB_MAX_Y, -HALF_COURT_LENGTH],
-                [
-                    -HALF_COURT_WIDTH - BB_DEPTH,
-                    OUT_BB_MAX_Y,
-                    HALF_COURT_LENGTH,
-                ],
+                [-HALF_COURT_WIDTH - BB_DEPTH, OUT_BB_MAX_Y, HALF_COURT_LENGTH,],
                 [
                     -HALF_COURT_WIDTH - BB_DEPTH,
                     FRONT_WALL_OUT_LINE_HEIGHT,
@@ -201,17 +177,9 @@ FIELD_BOUNDING_BOXES: Dict = {
                     BACK_WALL_OUT_LINE_HEIGHT,
                     -HALF_COURT_LENGTH,
                 ],
-                [
-                    HALF_COURT_WIDTH + BB_DEPTH,
-                    OUT_BB_MAX_Y,
-                    -HALF_COURT_LENGTH,
-                ],
+                [HALF_COURT_WIDTH + BB_DEPTH, OUT_BB_MAX_Y, -HALF_COURT_LENGTH,],
                 [HALF_COURT_WIDTH, OUT_BB_MAX_Y, -HALF_COURT_LENGTH],
-                [
-                    HALF_COURT_WIDTH + BB_DEPTH,
-                    OUT_BB_MAX_Y,
-                    HALF_COURT_LENGTH,
-                ],
+                [HALF_COURT_WIDTH + BB_DEPTH, OUT_BB_MAX_Y, HALF_COURT_LENGTH,],
                 [
                     HALF_COURT_WIDTH + BB_DEPTH,
                     FRONT_WALL_OUT_LINE_HEIGHT,

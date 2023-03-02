@@ -1,0 +1,16 @@
+name: ai-umpire
+channels:
+  - defaults
+dependencies:
+  - tqdm
+  - numpy
+  - python=3.6
+  - pytest
+  - pyyaml
+  - conda-build
+  - opencv
+  - matplotlib
+  - pandas
+  - scipy
+  - pybullet
+prefix: /home/david/miniconda3/envs/ai-umpire

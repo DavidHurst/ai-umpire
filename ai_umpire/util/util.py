@@ -83,9 +83,7 @@ CAM_EXTRINSICS_HOMOG_INV: np.ndarray = np.linalg.inv(CAM_EXTRINSICS_HOMOG)
 
 
 def gen_grid_of_points(
-    center: np.ndarray,
-    n_dim_samples: list,
-    sampling_area_size: list,
+    center: np.ndarray, n_dim_samples: list, sampling_area_size: list,
 ) -> np.ndarray:
     if center.shape[0] != 3:
         raise ValueError("Expecting 3D point for center.")
@@ -198,10 +196,7 @@ def binarize_frames(
 
         # Binarize frame with Otsu's method
         _, binary_frame = cv.threshold(
-            normalised_greyscale_frame,
-            thresh_low,
-            thresh_high,
-            cv.THRESH_BINARY,
+            normalised_greyscale_frame, thresh_low, thresh_high, cv.THRESH_BINARY,
         )
         binary_frames.append(binary_frame)
 
@@ -360,11 +355,7 @@ def calibrate_camera(
 
     # Estimate camera extrinsic
     _, rotation_vector, t_vec = cv.solvePnP(
-        world_coords,
-        image_coords,
-        camera_intrinsics_mtx,
-        dist_coeffs,
-        flags=0,
+        world_coords, image_coords, camera_intrinsics_mtx, dist_coeffs, flags=0,
     )
 
     # Convert rotation from vector notation to matrix using Rodrigues' method
@@ -481,11 +472,7 @@ def plot_bb(
     )
     if show_vertices:
         ax.scatter3D(
-            verts[:, 0],
-            verts[:, 1],
-            verts[:, 2],
-            zdir="y",
-            color=bb["colour"],
+            verts[:, 0], verts[:, 1], verts[:, 2], zdir="y", color=bb["colour"],
         )
 
 

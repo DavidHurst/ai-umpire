@@ -71,10 +71,7 @@ class BallDetector:
 
         # Blur all frames
         blurred_frames: np.ndarray = blur_frames(
-            video_frames,
-            blur_kernel_size,
-            blur_sigma,
-            disable_progbar=disable_progbar,
+            video_frames, blur_kernel_size, blur_sigma, disable_progbar=disable_progbar,
         )
 
         # Difference frames to extract foreground

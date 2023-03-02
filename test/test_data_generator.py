@@ -1,19 +1,26 @@
-import glob
-import os
+import pytest
 from pathlib import Path
 
-import pytest
-
 from ai_umpire import VideoGenerator
+
+DATA_DIR_PATH = str(Path.cwd() / "data")
 
 
 @pytest.fixture
 def data_gen_instance() -> VideoGenerator:
-    data_gen = VideoGenerator()
+    assert any(Path(DATA_DIR_PATH).iterdir()) is False  # Empty dir
+    data_gen = VideoGenerator(DATA_DIR_PATH)
     yield data_gen
+
 
 def test_gen_single_video(data_gen_instance) -> None:
     data_gen_instance.generate_video(0)
+
+    with pytest.raises(IndexError) as excinfo:
+        # Test idx OOB
+        for i in range(4):
+            data_gen_instance.generate_video(i)
+
 
 # def test_init(data_gen_instance) -> None:
 #     assert data_gen_instance is not None

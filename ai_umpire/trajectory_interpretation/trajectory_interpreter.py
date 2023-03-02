@@ -179,8 +179,7 @@ class TrajectoryInterpreter:
         p_out, out_bb_name, frame_out = 0.0, "", 0
         # Scan through stored probability detections_IC and keep track of the highest prob out, bb name and frame
         for i in tqdm(
-            range(self._n_measurements),
-            desc="Scanning stored collision probabilities",
+            range(self._n_measurements), desc="Scanning stored collision probabilities",
         ):
             for bb_name in FIELD_BOUNDING_BOXES.keys():
                 bb_out_prob_frame = self._bb_collision_probs[bb_name][i]

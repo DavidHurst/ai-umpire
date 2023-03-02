@@ -1,6 +1,13 @@
 ---
-01 :
+00:
   render_settings:
-    n_samples: 100
+    fps: 30
+    vid_length_mins: 2
   sim_settings:
-    test_setting: 23.2
+    steps_per_frame: 10
+01:
+  render_settings:
+    fps: 24
+    vid_length_mins: 0.5
+  sim_settings:
+    steps_per_frame: 10

@@ -133,3 +133,4 @@ dmypy.json
 
 dev_scripts/
 data/
+ai_umpire/synthetic_data_gen/assets/scene_objects
