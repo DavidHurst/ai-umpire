@@ -1,0 +1,6 @@
+---
+01 :
+  render_settings:
+    n_samples: 100
+  sim_settings:
+    test_setting: 23.2
