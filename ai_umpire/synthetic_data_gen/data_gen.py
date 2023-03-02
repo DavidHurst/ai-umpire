@@ -22,12 +22,7 @@ ROT_90_X_QUAT = [
 class VideoGenerator:
     def __init__(self, path_to_data_dir: str):
         self.data_dir_path: Path = Path(path_to_data_dir)
-        try:
-            self.data_dir_path.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
-            print("Data folder already exists.")
-        else:
-            print("Data folder was created.")
+        self.data_dir_path.mkdir(parents=True, exist_ok=True)
 
         fpath: Path = Path(__file__).parent / "config.yaml"
         if not fpath.exists():
@@ -44,13 +39,15 @@ class VideoGenerator:
         with open(self.config_fpath, "r") as f:
             self.settings_dict: dict = yaml.safe_load(f)
 
-    def generate_video(self, sample_id, visualise: bool = False) -> None:
+    def generate_video(
+        self, sample_id, show_sim_gui: bool = False, show_render_gui: bool = False
+    ) -> None:
         if sample_id > len(self.settings_dict) - 1 or sample_id < 0:
             raise IndexError("Sample index out of bounds")
         render_params: dict = self.settings_dict[sample_id]["render_settings"]
         sim_params: dict = self.settings_dict[sample_id]["sim_settings"]
 
-        if visualise:
+        if show_sim_gui:
             physicsClient = pb.connect(pb.GUI)
             pb.resetDebugVisualizerCamera(
                 cameraDistance=5,
@@ -61,7 +58,8 @@ class VideoGenerator:
         else:
             physicsClient = pb.connect(pb.DIRECT)
         pb.setGravity(0, 0, -9.807)
-        nvisii.initialize(headless=not visualise, lazy_updates=True)
+        pb.setRealTimeSimulation(0)
+        nvisii.initialize(headless=not show_render_gui, lazy_updates=True)
         if render_params["enable_denoiser"]:
             nvisii.enable_denoiser()
 
@@ -74,11 +72,11 @@ class VideoGenerator:
                 aspect=float(render_params["width"]) / float(render_params["height"]),
             ),
         )
-
-        camera.get_transform().look_at(
-            at=(0, 0, 0), up=(0, 0, 1), eye=(10, 0, 4),
-        )
+        # Second index is in/out
+        # Third index is up down
+        camera.get_transform().look_at(at=(0, 0, 2.5), up=(0, 1, 0), eye=(0, -10, 2.5))
         nvisii.set_camera_entity(camera)
+
         nvisii.set_dome_light_intensity(1.0)
         nvisii.set_dome_light_sky(
             sun_position=(10, 10, 10), atmosphere_thickness=1.0, saturation=1.0
@@ -111,85 +109,50 @@ class VideoGenerator:
         rot = floor.get_transform().get_rotation()
         rot = [rot[0], rot[1], rot[2], rot[3]]
 
-        obj_col_id = pb.createCollisionShape(
+        pb_obj = pb.createCollisionShape(
             pb.GEOM_MESH, vertices=vertices, meshScale=scale,
         )
         pb.createMultiBody(
-            baseCollisionShapeIndex=obj_col_id, basePosition=pos, baseOrientation=rot,
+            baseCollisionShapeIndex=pb_obj, basePosition=pos, baseOrientation=rot,
         )
 
-        mesh = nvisii.mesh.create_teapotahedron("mesh")
-
-        # set up for pybullet - here we will use indices for
-        # objects with holes
-        vertices = mesh.get_vertices()
-        indices = mesh.get_triangle_indices()
-
-        seconds_per_step: float = 1.0 / 240.0
         ids_pybullet_and_nvisii_names = []
-        name = "mesh_0"
-        obj = nvisii.entity.create(
-            name=name,
-            transform=nvisii.transform.create(name),
-            material=nvisii.material.create(name),
-        )
-        obj.set_mesh(mesh)
+        for obj_fpath in tqdm(self.all_scene_objs_fpaths, desc="Loading scene objects"):
+            if "metal" in str(obj_fpath) or 'line' in str(obj_fpath):
+                continue
 
-        # transforms
-        pos = nvisii.vec3(
-            random.uniform(-4, 4), random.uniform(-4, 4), random.uniform(2, 5)
-        )
-        rot = nvisii.normalize(
-            nvisii.quat(
-                random.uniform(-1, 1),
-                random.uniform(-1, 1),
-                random.uniform(-1, 1),
-                random.uniform(-1, 1),
+            pb_obj = pb.createCollisionShape(pb.GEOM_MESH, fileName=str(obj_fpath),)
+            pb.createMultiBody(
+                baseCollisionShapeIndex=pb_obj,
+                baseMass=0,
+                baseOrientation=ROT_90_X_QUAT,
             )
-        )
-        s = random.uniform(0.2, 0.5)
-        scale = (s, s, s)
+            pos, rot = pb.getBasePositionAndOrientation(pb_obj)
 
-        obj.get_transform().set_position(pos)
-        obj.get_transform().set_rotation(rot)
-        obj.get_transform().set_scale(scale)
+            nvisii_name: str = str(obj_fpath).split("/")[-1][:-4]
+            print(f"Loading {obj_fpath}")
+            nvisii_obj = nvisii.entity.create(
+                name=nvisii_name,
+                transform=nvisii.transform.create(nvisii_name),
+                material=nvisii.material.create(nvisii_name),
+            )
+            nvisii_obj.set_mesh(
+                nvisii.mesh_create_from_file(nvisii_name, str(obj_fpath))
+            )
+            nvisii_obj.get_transform().set_position(pos)
+            nvisii_obj.get_transform().set_rotation(rot)
 
-        # pybullet setup
-        pos = [pos[0], pos[1], pos[2]]
-        rot = [rot[0], rot[1], rot[2], rot[3]]
-        scale = [scale[0], scale[1], scale[2]]
+            rgb = colorsys.hsv_to_rgb(
+                random.uniform(0, 1), random.uniform(0.7, 1), random.uniform(0.7, 1)
+            )
+            nvisii_obj.get_material().set_base_color(rgb)
+            obj_mat = nvisii_obj.get_material()
+            obj_mat.set_metallic(0)  # should 0 or 1
+            obj_mat.set_transmission(random.uniform(0.9, 1))  # should 0 or 1
 
-        obj_col_id = pb.createCollisionShape(
-            pb.GEOM_MESH, vertices=vertices, meshScale=scale,
-        )
-        pb.createMultiBody(
-            baseCollisionShapeIndex=obj_col_id,
-            basePosition=pos,
-            baseOrientation=rot,
-            baseMass=random.uniform(0.5, 2),
-        )
-
-        rgb = colorsys.hsv_to_rgb(
-            random.uniform(0, 1), random.uniform(0.7, 1), random.uniform(0.7, 1)
-        )
-
-        obj.get_material().set_base_color(rgb)
-
-        obj_mat = obj.get_material()
-        obj_mat.set_metallic(0)  # should 0 or 1
-        obj_mat.set_transmission(random.uniform(0.9, 1))  # should 0 or 1
-
-        # scene_obj_ids = []
-        # for obj_fpath in tqdm(self.all_scene_objs_fpaths, desc="Loading scene objects"):
-        #     obj_id = pb.createCollisionShape(
-        #         shapeType=pb.GEOM_MESH, fileName=str(obj_fpath)
-        #     )
-        #     pb.createMultiBody(
-        #         baseMass=0,
-        #         baseCollisionShapeIndex=obj_id,
-        #         baseOrientation=ROT_90_X_QUAT,
-        #     )
-        #     scene_obj_ids.append(obj_id)
+            ids_pybullet_and_nvisii_names.append(
+                {"pybullet_id": pb_obj, "nvisii_id": nvisii_name}
+            )
 
         # Run sim
         n_steps: int = int(
@@ -201,24 +164,28 @@ class VideoGenerator:
             render_params["vid_length_mins"] * 60 * render_params["fps"]
         )
         print(f"Running sim for {n_steps} steps, {n_frames} frames")
-        for i in range(2):
+        for i in range(10):
+            print('i=',i)
             for _ in range(sim_params["steps_per_frame"]):
                 pb.stepSimulation()
-            pos, rot = pb.getBasePositionAndOrientation(obj_col_id)
 
-            # get the nvisii entity for that object
-            obj_entity = nvisii.entity.get(name)
-            obj_entity.get_transform().set_position(pos)
+            # Update mesh positions
+            for ids in ids_pybullet_and_nvisii_names:
+                pos, rot = pb.getBasePositionAndOrientation(ids["pybullet_id"])
 
-            # nvisii quat expects w as the first argument
-            obj_entity.get_transform().set_rotation(rot)
-            print(f"rendering frame {str(i).zfill(5)}/{str(n_frames).zfill(5)}")
-            nvisii.render_to_file(
-                width=int(render_params["width"]),
-                height=int(render_params["height"]),
-                samples_per_pixel=int(render_params["spp"]),
-                file_path=str(self.data_dir_path / f"{str(i).zfill(5)}.png"),
-            )
+                nvisii_obj = nvisii.entity.get(ids["nvisii_id"])
+                nvisii_obj.get_transform().set_position(pos)
+                nvisii_obj.get_transform().set_rotation(
+                    rot
+                )  # nvisii quat expects w as the first argument
+                print(f"Rendering frame {str(i).zfill(5)}/{str(n_frames).zfill(5)}")
+                print('i=', i)
+                nvisii.render_to_file(
+                    width=int(render_params["width"]),
+                    height=int(render_params["height"]),
+                    samples_per_pixel=int(render_params["spp"]),
+                    file_path=str(self.data_dir_path / f"{str(i).zfill(5)}.png"),
+                )
         pb.disconnect()
         nvisii.deinitialize()
         subprocess.call(
@@ -233,7 +200,7 @@ class VideoGenerator:
                 "libx264",
                 "-pix_fmt",
                 "yuv420p",
-                f'sample{sample_id}.mp4',
+                f"sample{sample_id}.mp4",
             ],
             cwd=self.data_dir_path.resolve(),
         )

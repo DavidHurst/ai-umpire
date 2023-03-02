@@ -6,7 +6,7 @@
     width: 1280
     height: 720
     enable_denoiser: True
-    spp: 64
+    spp: 200
   sim_settings:
     steps_per_frame: 10
 1:
