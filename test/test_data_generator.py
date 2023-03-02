@@ -22,6 +22,10 @@ def test_gen_single_video(data_gen_instance) -> None:
             data_gen_instance.generate_video(i)
 
 
+def test_gen_all_videos(data_gen_instance) -> None:
+    data_gen_instance.generate_all_videos()
+
+
 # def test_init(data_gen_instance) -> None:
 #     assert data_gen_instance is not None
 #     with pytest.raises(FileNotFoundError):

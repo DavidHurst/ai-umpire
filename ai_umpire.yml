@@ -13,4 +13,5 @@ dependencies:
   - pandas
   - scipy
   - pybullet
+  - black
 prefix: /home/david/miniconda3/envs/ai-umpire
