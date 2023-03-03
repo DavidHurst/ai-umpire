@@ -2,17 +2,17 @@
 0:
   render_settings:
     fps: 30
-    vid_length_mins: 0.1
+    vid_length_secs: 30
     width: 1280
     height: 720
     enable_denoiser: True
-    spp: 200
+    spp: 256
   sim_settings:
     steps_per_frame: 10
 1:
   render_settings:
     fps: 24
-    vid_length_mins: 0.5
+    vid_length_secs: 30
     width: 1280
     height: 720
     enable_denoiser: True

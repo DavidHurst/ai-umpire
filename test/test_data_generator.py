@@ -3,7 +3,7 @@ from pathlib import Path
 
 from ai_umpire import VideoGenerator
 
-DATA_DIR_PATH = str(Path(__file__).parent.parent / 'data')
+DATA_DIR_PATH = str(Path(__file__).parent.parent / "data")
 
 
 @pytest.fixture
