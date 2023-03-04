@@ -1,14 +1,19 @@
 ---
 0:
   render_settings:
-    fps: 30
-    vid_length_secs: 30
+    fps: 25
+    vid_length_secs: 10
     width: 1280
     height: 720
     enable_denoiser: True
-    spp: 256
+    spp: 128  # Samples per pixel
+    court_colour: blue
+    player_score_overlay: False
+    crowd_fullness: 0.5
   sim_settings:
-    steps_per_frame: 10
+    steps_per_frame: 100
+    front_wall_photographers: True
+    init_ball_pos: [0, 0, 2]
 1:
   render_settings:
     fps: 24
